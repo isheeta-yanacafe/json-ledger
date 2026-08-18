@@ -1,0 +1,1141 @@
+<!DOCTYPE html>
+<!-- yana café — https://yana.cafe -->
+<!-- Copyright (c) 2026 Mosozo Inc. -->
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JSON Ledger — ローカルJSONカタログ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --felt: #1E2E26;
+    --felt-dark: #16221B;
+    --brass: #B08D3E;
+    --brass-bright: #D4AF5E;
+    --card: #F3ECD8;
+    --card-dim: #E9DFC4;
+    --ink: #241F16;
+    --ink-soft: #5B5344;
+    --stamp: #8C3B2E;
+    --stamp-bright: #A94836;
+    --line: #C9BC96;
+    --font-label: 'Space Mono', monospace;
+    --font-ui: 'Inter', sans-serif;
+    --font-data: 'JetBrains Mono', monospace;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family: var(--font-ui);
+    background:
+      radial-gradient(ellipse at top left, rgba(255,255,255,0.03), transparent 60%),
+      repeating-linear-gradient(90deg, rgba(0,0,0,0.06) 0px, rgba(0,0,0,0.06) 1px, transparent 1px, transparent 120px),
+      var(--felt);
+    color: var(--card);
+    min-height: 100vh;
+  }
+  #app{ max-width: 1180px; margin: 0 auto; padding: 28px 20px 80px; }
+
+  /* ---------- Header ---------- */
+  .masthead{
+    display:flex; align-items:flex-end; justify-content:space-between;
+    gap: 16px; flex-wrap: wrap;
+    border-bottom: 2px solid var(--brass);
+    padding-bottom: 14px; margin-bottom: 18px;
+  }
+  .masthead h1{
+    font-family: var(--font-label);
+    font-size: 26px; letter-spacing: 2px; margin: 0;
+    color: var(--card);
+    text-transform: uppercase;
+  }
+  .masthead .sub{
+    font-family: var(--font-data); font-size: 12px; color: var(--brass-bright);
+    margin-top: 4px; letter-spacing: 0.5px;
+  }
+  .file-tag{
+    font-family: var(--font-data); font-size: 12px; color: var(--felt);
+    background: var(--brass-bright); padding: 4px 10px; border-radius: 3px;
+    display:inline-flex; align-items:center; gap:6px;
+  }
+  .file-tag .dot{width:6px;height:6px;border-radius:50%;background:var(--stamp);}
+
+  /* ---------- Toolbar ---------- */
+  .toolbar{
+    display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+    margin-bottom: 22px;
+  }
+  .btn{
+    font-family: var(--font-label); font-size: 12px; letter-spacing: 0.5px;
+    text-transform: uppercase; cursor:pointer; border:none;
+    padding: 9px 14px; border-radius: 3px; background: var(--card);
+    color: var(--ink); transition: transform .12s ease, box-shadow .12s ease;
+    box-shadow: 2px 2px 0 rgba(0,0,0,0.35);
+  }
+  .btn:hover{ transform: translate(-1px,-1px); box-shadow: 3px 3px 0 rgba(0,0,0,0.4); }
+  .btn:active{ transform: translate(0,0); box-shadow: 1px 1px 0 rgba(0,0,0,0.4); }
+  .btn.primary{ background: var(--brass-bright); }
+  .btn.danger{ background: var(--stamp-bright); color: var(--card); }
+  .btn.ghost{ background: transparent; color: var(--card); box-shadow: none; border: 1px solid var(--line); }
+  .btn.ghost:hover{ background: rgba(255,255,255,0.06); }
+  .btn:disabled{ opacity:0.35; cursor:not-allowed; box-shadow:none; transform:none; }
+
+  .search-wrap{ flex:1; min-width: 180px; position:relative; }
+  .search-wrap input{
+    width:100%; font-family: var(--font-data); font-size: 13px;
+    padding: 9px 12px 9px 30px; border-radius: 3px; border: 1px solid var(--line);
+    background: rgba(255,255,255,0.05); color: var(--card);
+  }
+  .search-wrap input::placeholder{ color: rgba(243,236,216,0.4); }
+  .search-wrap::before{
+    content: "🔍"; position:absolute; left:10px; top:50%; transform:translateY(-50%);
+    font-size:12px; opacity:0.6;
+  }
+
+  /* drawer-label style view toggle */
+  .toggle{
+    display:flex; border: 1px solid var(--brass); border-radius: 3px; overflow:hidden;
+  }
+  .toggle button{
+    font-family: var(--font-label); font-size: 11px; letter-spacing: 1px; text-transform: uppercase;
+    padding: 9px 14px; background: transparent; color: var(--brass-bright); border:none; cursor:pointer;
+  }
+  .toggle button.active{ background: var(--brass); color: var(--felt-dark); font-weight:700; }
+
+  /* ---------- Empty state ---------- */
+  #emptyState{
+    text-align:center; padding: 90px 20px; border: 1px dashed var(--line);
+    border-radius: 6px; margin-top: 20px;
+  }
+  #emptyState .icon{ font-size: 40px; margin-bottom: 14px; }
+  #emptyState h2{
+    font-family: var(--font-label); text-transform:uppercase; letter-spacing:1px;
+    font-size: 18px; color: var(--brass-bright); margin: 0 0 10px;
+  }
+  #emptyState p{ color: rgba(243,236,216,0.65); max-width: 440px; margin: 0 auto 22px; font-size: 14px; line-height:1.6;}
+  #emptyState .actions{ display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+
+  .hidden{ display:none !important; }
+
+  /* ---------- Table view (punch-card ledger rows) ---------- */
+  .table-scroll{ overflow-x:auto; border-radius: 6px; }
+  table.ledger{
+    width:100%; border-collapse: separate; border-spacing: 0 8px;
+  }
+  table.ledger thead th{
+    font-family: var(--font-label); font-size: 11px; letter-spacing: 0.5px;
+    text-transform: uppercase; color: var(--brass-bright); text-align:left;
+    padding: 0 12px 6px; white-space:nowrap;
+  }
+  table.ledger thead th .del-col{
+    margin-left:6px; opacity:0.4; cursor:pointer; font-size:11px;
+  }
+  table.ledger thead th .del-col:hover{ opacity:1; color: var(--stamp-bright); }
+  table.ledger thead th .col-move{
+    opacity:0.35; cursor:pointer; font-size:10px; padding:0 2px;
+  }
+  table.ledger thead th .col-move:hover{ opacity:1; color: var(--card); }
+  table.ledger tbody tr{
+    background: var(--card);
+    color: var(--ink);
+  }
+  table.ledger tbody tr td{
+    padding: 10px 12px; font-family: var(--font-data); font-size: 13px;
+    border-top: 1px solid var(--card-dim); border-bottom: 1px solid var(--card-dim);
+    vertical-align: top; min-width: 120px;
+  }
+  table.ledger tbody tr td:first-child{
+    border-left: 1px solid var(--card-dim); border-radius: 4px 0 0 4px;
+    position:relative; padding-left: 22px;
+  }
+  table.ledger tbody tr td:first-child::before{
+    content:""; position:absolute; left:8px; top:50%; transform:translateY(-50%);
+    width:7px; height:7px; border-radius:50%; background: var(--felt);
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.2);
+  }
+  table.ledger tbody tr td:last-child{ border-right: 1px solid var(--card-dim); border-radius: 0 4px 4px 0; }
+  table.ledger tbody tr:hover{ background: var(--card-dim); }
+  .cell-editable{
+    outline:none; min-height: 18px; cursor:text; border-radius:2px;
+  }
+  .cell-editable:focus{ background: #fff; box-shadow: 0 0 0 2px var(--brass); }
+  .cell-editable.cell-unset:empty::before{
+    content: attr(data-placeholder);
+    color: var(--ink-soft); opacity: 0.55; font-style: italic; pointer-events: none;
+  }
+  .cell-wrap{ display:flex; align-items:flex-start; gap:4px; flex-wrap:wrap; }
+  .cell-wrap > :first-child{ flex:1 1 70px; min-width:70px; }
+  .nest-btn{
+    font-family: var(--font-data); font-size: 10px; flex-shrink:0;
+  }
+  .row-actions{ white-space:nowrap; }
+  .icon-btn{
+    background:none; border:none; cursor:pointer; font-size:13px; opacity:0.5; padding:2px 4px;
+  }
+  .icon-btn:hover{ opacity:1; }
+
+  /* checkbox / number inputs inside cells */
+  td input[type="checkbox"]{ width:16px; height:16px; }
+  td input[type="number"]{
+    width: 100%; border:none; background:transparent; font-family: var(--font-data);
+    font-size:13px; color: var(--ink); outline:none;
+  }
+
+  /* tags (array of primitives) */
+  .tags{ display:flex; flex-wrap:wrap; gap:5px; align-items:center; }
+  .tag{
+    background: var(--felt); color: var(--card); font-size: 11px;
+    padding: 3px 8px 3px 9px; border-radius: 10px; display:inline-flex; align-items:center; gap:6px;
+    font-family: var(--font-ui);
+  }
+  .tag .x{ cursor:pointer; opacity:0.6; font-size:11px; }
+  .tag .x:hover{ opacity:1; color: var(--stamp-bright); }
+  .tag-add{
+    border: 1px dashed var(--ink-soft); background:transparent; font-size:11px;
+    padding: 3px 8px; border-radius: 10px; width: 74px; font-family: var(--font-ui);
+    color: var(--ink);
+  }
+  .tag-add:focus{ outline:none; border-color: var(--felt); }
+
+  .obj-chip{
+    display:inline-block; background: var(--card-dim); border: 1px solid var(--ink-soft);
+    padding: 3px 8px; border-radius: 3px; font-size: 11px; cursor:pointer; color: var(--ink-soft);
+  }
+  .obj-chip:hover{ border-color: var(--felt); color: var(--ink); }
+
+  /* nested array-of-objects accordion */
+  .nested-array{ display:flex; flex-direction:column; align-items:flex-start; gap:8px; }
+  .nested-toggle{ user-select:none; font-family: var(--font-data); }
+  .nested-panel{
+    display:flex; flex-direction:column; gap:8px; width:100%; min-width: 200px;
+    border-left: 2px solid var(--brass); padding-left: 10px;
+  }
+  .nested-item{
+    background: var(--card-dim); border: 1px solid var(--line); border-radius: 4px;
+    padding: 8px 10px;
+  }
+  .nested-item-head{
+    display:flex; justify-content:space-between; align-items:center;
+    font-family: var(--font-label); font-size: 10px; letter-spacing:0.5px;
+    color: var(--ink-soft); text-transform:uppercase; margin-bottom:6px;
+  }
+  .nested-item-body{ display:flex; flex-direction:column; gap:6px; }
+  .nested-field{ display:flex; align-items:flex-start; gap:6px; flex-wrap:wrap; }
+  .nested-tags-wrap{ flex:1 1 120px; min-width:0; }
+  .nested-field-label{
+    font-family: var(--font-label); font-size:10px; text-transform:uppercase;
+    color: var(--stamp); min-width:60px; flex-shrink:0;
+  }
+  .nested-field input[type="text"], .nested-field input[type="number"]{
+    flex:1; min-width:0; font-family: var(--font-data); font-size:12px; padding:4px 6px;
+    border:1px solid var(--ink-soft); border-radius:3px; background:#fff; color:var(--ink);
+  }
+  .nested-field input[type="checkbox"]{ width:14px; height:14px; flex-shrink:0; }
+  .nested-btn{
+    align-self:flex-start; font-family: var(--font-label); font-size: 10px; letter-spacing: 0.5px;
+    text-transform: uppercase; cursor:pointer; border: 1px dashed var(--ink-soft);
+    background: transparent; color: var(--ink-soft); padding: 5px 10px; border-radius: 3px;
+  }
+  .nested-btn:hover{ border-color: var(--felt); color: var(--ink); }
+
+  .btn.ghost.on-light{ color: var(--ink); border-color: var(--ink-soft); }
+  .btn.ghost.on-light:hover{ background: rgba(0,0,0,0.05); }
+
+  /* new-column attention flash */
+  .col-flash{ animation: colFlash 2.4s ease-out; border-radius: 4px; }
+  @keyframes colFlash{
+    0%{ box-shadow: inset 0 0 0 2px var(--brass-bright); background-color: rgba(212,175,94,0.35); }
+    100%{ box-shadow: inset 0 0 0 2px transparent; background-color: transparent; }
+  }
+
+  /* ---------- Card view ---------- */
+  .card-grid{
+    display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 18px;
+  }
+  .rec-card{
+    background: var(--card); color: var(--ink); border-radius: 4px;
+    box-shadow: 3px 4px 0 rgba(0,0,0,0.35);
+    background-image: repeating-linear-gradient(180deg, transparent 0, transparent 27px, rgba(140,59,46,0.08) 28px);
+    padding: 16px 16px 14px; position:relative;
+  }
+  .rec-card::before{
+    content:""; position:absolute; top:0; left:18px; width:34px; height:10px;
+    background: var(--brass-bright); border-radius: 0 0 4px 4px; opacity:0.9;
+  }
+  .rec-card .rec-field{ margin-bottom: 10px; }
+  .rec-card .rec-field:last-child{ margin-bottom:0; }
+  .rec-card .rec-label-row{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom: 3px; }
+  .rec-card .rec-label{
+    font-family: var(--font-label); font-size: 10px; text-transform:uppercase;
+    letter-spacing: 0.5px; color: var(--stamp); display:block; margin-bottom: 0;
+  }
+  .rec-card .card-move{ display:inline-flex; gap:1px; flex-shrink:0; }
+  .rec-card .card-move span{
+    opacity:0.35; cursor:pointer; font-size:9px; color: var(--ink-soft); padding:1px 3px; line-height:1;
+  }
+  .rec-card .card-move span:hover{ opacity:1; color: var(--felt); }
+  .rec-card .rec-value{ font-family: var(--font-data); font-size: 13px; line-height:1.5; }
+  .rec-card .card-top-row{ display:flex; justify-content:space-between; align-items:flex-start; margin-top: 6px;}
+  .rec-card .card-actions{ display:flex; gap:4px; }
+
+  /* ---------- Modal (nested JSON editor) ---------- */
+  .modal-overlay{
+    position:fixed; inset:0; background: rgba(0,0,0,0.6); display:flex;
+    align-items:center; justify-content:center; z-index: 50; padding: 20px;
+  }
+  .modal-box{
+    background: var(--card); color: var(--ink); border-radius: 6px; width: 520px;
+    max-width: 100%; padding: 20px; box-shadow: 6px 8px 0 rgba(0,0,0,0.4);
+  }
+  .modal-box h3{
+    font-family: var(--font-label); text-transform:uppercase; font-size:14px; margin:0 0 4px;
+    letter-spacing: 0.5px;
+  }
+  .modal-box .hint{ font-size:12px; color: var(--ink-soft); margin-bottom:10px; }
+  .modal-box textarea{
+    width:100%; height: 220px; font-family: var(--font-data); font-size: 13px;
+    padding:10px; border-radius:4px; border:1px solid var(--ink-soft); resize:vertical;
+  }
+  .modal-err{ color: var(--stamp-bright); font-size:12px; margin-top:6px; min-height:16px; }
+  .modal-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:12px; }
+
+  .toast{
+    position:fixed; bottom: 22px; left:50%; transform: translateX(-50%);
+    background: var(--brass-bright); color: var(--felt-dark); font-family: var(--font-label);
+    font-size:12px; letter-spacing:0.5px; padding: 10px 18px; border-radius: 4px;
+    box-shadow: 3px 3px 0 rgba(0,0,0,0.4); opacity:0; pointer-events:none; transition: opacity .25s ease, transform .25s ease;
+    text-transform: uppercase;
+  }
+  .toast.show{ opacity:1; transform: translateX(-50%) translateY(-4px); }
+
+  footer.notice{
+    margin-top: 30px; font-size: 11px; color: rgba(243,236,216,0.4); font-family: var(--font-data);
+    text-align:center;
+  }
+
+  @media (max-width: 640px){
+    .masthead{ flex-direction:column; align-items:flex-start; }
+    .toolbar{ flex-direction:column; align-items:stretch; }
+    .toolbar > *{ width:100%; }
+    .toggle{ width:100%; }
+    .toggle button{ flex:1; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div class="masthead">
+    <div>
+      <h1>JSON Ledger</h1>
+      <div class="sub">ローカルJSONを、台帳のようにテーブル/カードで直接編集する</div>
+    </div>
+    <div id="fileTag" class="file-tag hidden">
+      <span class="dot"></span><span id="fileTagText">untitled.json</span>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <button class="btn primary" id="openBtn">📂 ファイルを開く</button>
+    <button class="btn" id="saveBtn" disabled>💾 保存</button>
+    <button class="btn ghost" id="saveAsBtn" disabled title="保存先のフォルダとファイル名を選んで保存">📁 名前を付けて保存</button>
+    <button class="btn ghost" id="undoBtn" disabled title="元に戻す（Ctrl/Cmd+Z）">↩ 元に戻す</button>
+    <button class="btn ghost" id="addRecordBtn" disabled>＋ レコード追加</button>
+    <button class="btn ghost" id="addColBtn" disabled>＋ 項目追加</button>
+    <div class="search-wrap">
+      <input type="text" id="searchInput" placeholder="検索..." disabled>
+    </div>
+    <div class="toggle">
+      <button id="tableToggle" class="active">テーブル</button>
+      <button id="cardToggle">カード</button>
+    </div>
+  </div>
+
+  <div id="emptyState">
+    <div class="icon">🗂️</div>
+    <h2>まだファイルが開かれていません</h2>
+    <p>ローカルのJSONファイル（オブジェクトの配列、または配列を含むJSON）を開くと、テーブルとカードで自由に編集できます。サンプルで試すこともできます。</p>
+    <div class="actions">
+      <button class="btn primary" id="openBtn2">📂 JSONファイルを開く</button>
+      <button class="btn ghost" id="demoBtn">🍵 サンプルを試す（カフェメニュー）</button>
+    </div>
+  </div>
+
+  <div id="tableView" class="view hidden">
+    <div class="table-scroll">
+      <table class="ledger">
+        <thead><tr id="theadRow"></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="cardView" class="view hidden">
+    <div class="card-grid" id="cardGrid"></div>
+  </div>
+
+  <footer class="notice">すべての処理はブラウザ内で完結します。データは外部に送信されません。</footer>
+</div>
+
+<input type="file" id="fileInput" accept=".json,application/json" class="hidden">
+<div id="toast" class="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------------- State ----------------
+  const state = {
+    records: [],        // array of plain objects
+    columns: [],         // ordered list of key names
+    fileName: "untitled.json",
+    fileHandle: null,    // File System Access handle, if available
+    wrapper: null,        // { type: 'root-array' } | { type: 'wrapped', key: 'items' } | { type: 'single-object' }
+    view: 'table',
+    query: '',
+    dirty: false,          // true when there are unsaved edits
+    undoStack: []          // JSON snapshots of {records, columns} taken before each edit
+  };
+
+  function markDirty(){ state.dirty = true; }
+
+  const UNDO_LIMIT = 50;
+  const UNDO_COALESCE_MS = 600; // groups rapid-fire keystrokes (typing a number) into one undo step
+  const lastUndoSnapshotAt = new Map(); // keyed per input element, not globally, so typing in
+                                          // one field doesn't swallow a discrete edit in another
+  function pushUndo(coalesceKey){
+    const now = Date.now();
+    if (coalesceKey){
+      const last = lastUndoSnapshotAt.get(coalesceKey) || 0;
+      lastUndoSnapshotAt.set(coalesceKey, now);
+      if (now - last < UNDO_COALESCE_MS) return;
+    }
+    // structuredClone (not JSON round-trip) so array-only extras like __expanded survive
+    state.undoStack.push(structuredClone({ records: state.records, columns: state.columns }));
+    if (state.undoStack.length > UNDO_LIMIT) state.undoStack.shift();
+    updateUndoBtn();
+  }
+  function updateUndoBtn(){
+    const btn = $('#undoBtn');
+    if (btn) btn.disabled = state.undoStack.length === 0;
+  }
+  function undo(){
+    if (state.undoStack.length === 0) return;
+    const snap = state.undoStack.pop();
+    state.records = snap.records;
+    state.columns = snap.columns;
+    markDirty();
+    updateUndoBtn();
+    render();
+    toast('↩ 元に戻しました');
+  }
+
+  const $ = (sel) => document.querySelector(sel);
+  const el = (tag, attrs, ...children) => {
+    const e = document.createElement(tag);
+    if (attrs) for (const k in attrs) {
+      if (k === 'class') e.className = attrs[k];
+      else if (k === 'html') e.innerHTML = attrs[k];
+      else if (k.startsWith('on')) e.addEventListener(k.slice(2), attrs[k]);
+      else if (attrs[k] !== null && attrs[k] !== undefined) e.setAttribute(k, attrs[k]);
+    }
+    children.flat().forEach(c => {
+      if (c === null || c === undefined) return;
+      e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+    });
+    return e;
+  };
+
+  function toast(msg){
+    const t = $('#toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toast._h);
+    toast._h = setTimeout(()=> t.classList.remove('show'), 2200);
+  }
+
+  function debounce(fn, wait){
+    let timer;
+    return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), wait); };
+  }
+
+  // ---------------- Normalize incoming JSON ----------------
+  function normalize(parsed){
+    if (Array.isArray(parsed)){
+      return { records: parsed.map(r => (typeof r === 'object' && r !== null && !Array.isArray(r)) ? r : { value: r }),
+               wrapper: { type: 'root-array' } };
+    }
+    if (parsed && typeof parsed === 'object'){
+      // find first array property
+      for (const key of Object.keys(parsed)){
+        if (Array.isArray(parsed[key])){
+          return { records: parsed[key].map(r => (typeof r === 'object' && r !== null && !Array.isArray(r)) ? r : { value: r }),
+                   wrapper: { type: 'wrapped', key, rest: parsed } };
+        }
+      }
+      // no array found: treat whole object as a single record
+      return { records: [parsed], wrapper: { type: 'single-object' } };
+    }
+    // primitive
+    return { records: [{ value: parsed }], wrapper: { type: 'root-array' } };
+  }
+
+  function serialize(){
+    const cleaned = state.records;
+    if (state.wrapper.type === 'root-array') return cleaned;
+    if (state.wrapper.type === 'wrapped'){
+      const out = Object.assign({}, state.wrapper.rest);
+      out[state.wrapper.key] = cleaned;
+      return out;
+    }
+    if (state.wrapper.type === 'single-object') return cleaned[0] || {};
+    return cleaned;
+  }
+
+  function computeColumns(){
+    const cols = [];
+    const seen = new Set();
+    state.records.forEach(r => Object.keys(r).forEach(k => { if(!seen.has(k)){ seen.add(k); cols.push(k); }}));
+    state.columns = cols;
+  }
+
+  // ---------------- Loading ----------------
+  function loadJSONText(text, name){
+    let parsed;
+    try{ parsed = JSON.parse(text); }
+    catch(e){ toast('⚠ JSONの解析に失敗しました: ' + e.message); return false; }
+    const { records, wrapper } = normalize(parsed);
+    state.records = records;
+    state.wrapper = wrapper;
+    state.fileName = name || 'untitled.json';
+    state.dirty = false;
+    state.undoStack = [];
+    updateUndoBtn();
+    computeColumns();
+    setControlsEnabled(true);
+    render();
+    toast('読み込み完了: ' + state.fileName);
+    return true;
+  }
+
+  function setControlsEnabled(on){
+    ['saveBtn','saveAsBtn','addColBtn','searchInput'].forEach(id => $('#'+id).disabled = !on);
+    $('#addRecordBtn').disabled = !on || (on && state.wrapper && state.wrapper.type === 'single-object');
+    $('#fileTag').classList.toggle('hidden', !on);
+    $('#fileTagText').textContent = state.fileName + (state.fileHandle ? ' (直接保存可)' : '');
+    $('#emptyState').classList.toggle('hidden', on);
+  }
+
+  function confirmDiscardIfDirty(){
+    if (!state.dirty) return true;
+    return confirm('保存されていない変更があります。破棄して続行しますか？');
+  }
+
+  async function openFile(){
+    if (!confirmDiscardIfDirty()) return;
+    if (window.showOpenFilePicker){
+      try{
+        const [handle] = await window.showOpenFilePicker({
+          types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
+        });
+        const file = await handle.getFile();
+        const text = await file.text();
+        if (loadJSONText(text, file.name)) {
+          state.fileHandle = handle;
+          setControlsEnabled(true);
+          // 書き込み権限を先にリクエストしておくと、後で「保存」を押した瞬間に
+          // 予期しない許可プロンプトが出るのを避けやすい（対応ブラウザのみ）。
+          if (handle.requestPermission) handle.requestPermission({ mode: 'readwrite' }).catch(() => {});
+        }
+        return;
+      }catch(err){
+        if (err.name === 'AbortError') return;
+        // fall through to input fallback
+      }
+    }
+    $('#fileInput').click();
+  }
+
+  $('#fileInput').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => { state.fileHandle = null; loadJSONText(reader.result, file.name); };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+
+  function loadDemo(){
+    if (!confirmDiscardIfDirty()) return;
+    const demo = [
+      { name: "ほうじ茶ラテ", price: 580, tags: ["人気", "ホット可"], allergens: ["乳"], available: true },
+      { name: "抹茶あずきパフェ", price: 780, tags: ["季節限定"], allergens: ["乳", "小麦"], available: true },
+      { name: "自家製ジンジャーエール", price: 520, tags: ["ヴィーガン対応"], allergens: [], available: false }
+    ];
+    state.records = demo;
+    state.wrapper = { type: 'wrapped', key: 'menu', rest: { store: "ヤナカフェ" } };
+    state.fileName = "menu.demo.json";
+    state.fileHandle = null;
+    state.dirty = false;
+    state.undoStack = [];
+    updateUndoBtn();
+    computeColumns();
+    setControlsEnabled(true);
+    render();
+    toast('サンプルを読み込みました');
+  }
+
+  // ---------------- Save ----------------
+  async function saveFile(){
+    const json = JSON.stringify(serialize(), null, 2);
+    if (state.fileHandle){
+      try{
+        const writable = await state.fileHandle.createWritable();
+        await writable.write(json);
+        await writable.close();
+        state.dirty = false;
+        toast('💾 ' + state.fileName + ' に上書き保存しました');
+        return;
+      }catch(err){
+        toast('⚠ 直接保存に失敗しました。保存先を選び直してください');
+      }
+    }
+    // 保存先ハンドルがまだ無い（＝一度も「名前を付けて保存」していない）ので、
+    // 対応ブラウザなら毎回ダウンロードフォルダに落とすのではなく保存先を選ばせる。
+    await saveFileAs(json);
+  }
+
+  async function saveFileAs(jsonOverride){
+    const json = jsonOverride || JSON.stringify(serialize(), null, 2);
+    if (window.showSaveFilePicker){
+      try{
+        const handle = await window.showSaveFilePicker({
+          suggestedName: state.fileName,
+          types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
+        });
+        const writable = await handle.createWritable();
+        await writable.write(json);
+        await writable.close();
+        state.fileHandle = handle;
+        state.fileName = handle.name;
+        state.dirty = false;
+        setControlsEnabled(true);
+        toast('💾 ' + state.fileName + ' に保存しました');
+        return;
+      }catch(err){
+        if (err.name === 'AbortError') return;
+        // fall through to the download fallback below
+      }
+    }
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = el('a', { href: url, download: state.fileName });
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    state.dirty = false;
+    toast('⬇ ' + state.fileName + ' をダウンロードフォルダに保存しました（このブラウザは保存先選択に非対応です）');
+  }
+
+  // ---------------- Record / column ops ----------------
+  function emptyValueLike(v){
+    switch (valueType(v)){
+      case 'boolean': return false;
+      case 'number': return 0;
+      case 'array': return [];
+      case 'object': return {};
+      default: return '';
+    }
+  }
+
+  function inferColumnDefault(col){
+    // 他のレコードでこの列がどんな型で使われているかを見て、それに合った空値を返す
+    // (例: allergensが配列なら[]、availableが真偽値ならfalse)。見つからなければ空文字列。
+    for (const r of state.records){
+      if (col in r) return emptyValueLike(r[col]);
+    }
+    return '';
+  }
+
+  function addRecord(){
+    if (state.wrapper.type === 'single-object'){
+      toast('⚠ 単一オブジェクトのJSONにはレコードを追加できません');
+      return;
+    }
+    pushUndo();
+    const blank = {};
+    state.columns.forEach(c => blank[c] = inferColumnDefault(c));
+    state.records.push(blank);
+    markDirty();
+    render();
+  }
+
+  function deleteRecord(idx){
+    if (state.wrapper.type === 'single-object'){
+      toast('⚠ 単一オブジェクトのJSONは1件構成のため削除できません');
+      return;
+    }
+    pushUndo();
+    state.records.splice(idx, 1);
+    markDirty();
+    render();
+  }
+
+  function addColumn(){
+    const name = prompt('新しい項目名（キー）を入力してください:');
+    if (!name) return;
+    if (state.columns.includes(name)){ toast('その項目は既に存在します'); return; }
+    pushUndo();
+    state.columns.push(name);
+    state.records.forEach(r => { if (!(name in r)) r[name] = ""; });
+    markDirty();
+    render();
+    highlightColumn(name);
+    toast('「' + name + '」項目を追加しました。光っているセルをクリックして値を入力してください');
+  }
+
+  function highlightColumn(name){
+    const colIndex = state.columns.indexOf(name);
+    if (colIndex === -1) return;
+    document.querySelectorAll('table.ledger tbody tr').forEach(tr => {
+      const td = tr.children[colIndex + 1];
+      if (td) td.classList.add('col-flash');
+    });
+    const th = document.querySelectorAll('table.ledger thead th')[colIndex + 1];
+    if (th) th.classList.add('col-flash');
+    document.querySelectorAll('.rec-card').forEach(card => {
+      const field = card.children[colIndex];
+      if (field) field.classList.add('col-flash');
+    });
+  }
+
+  function deleteColumn(name){
+    if (!confirm('項目「' + name + '」を全レコードから削除しますか？')) return;
+    pushUndo();
+    state.columns = state.columns.filter(c => c !== name);
+    state.records.forEach(r => { delete r[name]; });
+    markDirty();
+    render();
+  }
+
+  function moveColumn(name, direction){
+    const i = state.columns.indexOf(name);
+    const j = i + direction;
+    if (i === -1 || j < 0 || j >= state.columns.length) return;
+    pushUndo();
+    [state.columns[i], state.columns[j]] = [state.columns[j], state.columns[i]];
+    markDirty();
+    render();
+  }
+
+  function updateValue(idx, key, value){
+    state.records[idx][key] = value;
+    markDirty();
+  }
+
+  function matchesQuery(record){
+    if (!state.query) return true;
+    const q = state.query.toLowerCase();
+    return JSON.stringify(record).toLowerCase().includes(q);
+  }
+
+  // ---------------- Cell renderers ----------------
+  function valueType(v){
+    if (Array.isArray(v)) return 'array';
+    if (v !== null && typeof v === 'object') return 'object';
+    if (typeof v === 'boolean') return 'boolean';
+    if (typeof v === 'number') return 'number';
+    return 'string';
+  }
+
+  function renderTags(arr, idx, key, container){
+    container.innerHTML = '';
+    const wrap = el('div', { class: 'tags' });
+    arr.forEach((tag, ti) => {
+      const chip = el('span', { class: 'tag' },
+        String(tag),
+        el('span', { class: 'x', onclick: () => { pushUndo(); arr.splice(ti,1); markDirty(); renderTags(arr, idx, key, container); } }, '✕')
+      );
+      wrap.appendChild(chip);
+    });
+    const input = el('input', {
+      class: 'tag-add', placeholder: '+ 追加',
+      onkeydown: (e) => {
+        if (e.key === 'Enter' && e.target.value.trim()){
+          pushUndo();
+          arr.push(e.target.value.trim());
+          e.target.value = '';
+          markDirty();
+          renderTags(arr, idx, key, container);
+        }
+      }
+    });
+    wrap.appendChild(input);
+    container.appendChild(wrap);
+  }
+
+  function renderPrimitiveCell(value, idx, key){
+    const hasKey = key in state.records[idx];
+    // 未設定セルは、他のレコードでこの項目が何型で使われているかを見て、
+    // ふさわしいウィジェット（チェックボックス／数値欄）を先出しする。
+    // 実際の値はまだ書き込まず、本当に操作された時だけ書き込む。
+    const type = hasKey ? valueType(value) : valueType(inferColumnDefault(key));
+    let control;
+    if (type === 'boolean'){
+      control = el('input', {
+        type: 'checkbox', checked: value ? 'checked' : null,
+        onchange: (e) => { pushUndo(); updateValue(idx, key, e.target.checked); if (!hasKey) render(); }
+      });
+    } else if (type === 'number'){
+      control = el('input', {
+        type: 'number', value: hasKey ? value : '',
+        oninput: (e) => { pushUndo(e.target); updateValue(idx, key, e.target.value === '' ? '' : parseFloat(e.target.value)); },
+        onblur: () => { if (!hasKey) render(); } // 未設定→入力ありに変わったら再描画して🗑等を出す
+      });
+    } else {
+      // string（配列/オブジェクト型と推定されても、未設定の間はテキストのプレースホルダーのまま）
+      const displayValue = value === undefined || value === null ? '' : String(value);
+      const attrs = {
+        class: 'cell-editable' + (hasKey ? '' : ' cell-unset'),
+        contenteditable: 'true',
+        onblur: (e) => {
+          const text = e.target.textContent;
+          if (!hasKey && text === '') return; // クリックして離れただけ、未入力のまま維持
+          if (hasKey && text === displayValue) return; // 実際の編集が無いなら何もしない(null→""化を防ぐ)
+          pushUndo();
+          updateValue(idx, key, text);
+          if (!hasKey) render();
+        }
+      };
+      if (!hasKey) attrs['data-placeholder'] = '未設定（クリックして入力）';
+      control = displayValue ? el('div', attrs, displayValue) : el('div', attrs);
+    }
+    const addSubBtn = el('button', {
+      class: 'icon-btn nest-btn', title: '下位項目を追加（現在の値は下位項目に置き換わります）',
+      onclick: () => {
+        const hasContent = value !== '' && value !== null && value !== undefined;
+        if (hasContent && !confirm(
+          '「' + key + '」の現在の値「' + value + '」は下位項目（配列）に置き換わり、失われます。\n' +
+          '元の値を残したい場合は、キャンセルして先に「＋ 項目追加」で別の列（例: variants）を作り、そちらで下位項目を追加してください。\n\n' +
+          '続行しますか？'
+        )) return;
+        pushUndo();
+        const arr = [{}];
+        arr.__expanded = true;
+        updateValue(idx, key, arr);
+        render();
+      }
+    }, '+項目');
+    const nestBtn = el('button', {
+      class: 'icon-btn nest-btn', title: 'JSONを直接入力して下位項目に変換',
+      onclick: () => openJsonModal(idx, key)
+    }, '{ }');
+    const children = [control, addSubBtn, nestBtn];
+    if (hasKey){
+      children.push(el('button', {
+        class: 'icon-btn', title: 'このレコードから「' + key + '」を削除（他の行や列自体には影響しません）',
+        onclick: () => { pushUndo(); delete state.records[idx][key]; markDirty(); render(); }
+      }, '🗑'));
+    }
+    return el('div', { class: 'cell-wrap' }, ...children);
+  }
+
+  function renderCellContent(idx, key){
+    const value = state.records[idx][key];
+    const type = valueType(value);
+    if (type !== 'array' && type !== 'object'){
+      return renderPrimitiveCell(value, idx, key);
+    }
+
+    let content;
+    if (type === 'array'){
+      // non-empty array of only primitives -> tag chips. Everything else (empty array,
+      // or array containing objects) -> the nested accordion, so an emptied-out
+      // variants array stays editable instead of silently turning into a tag field.
+      const isPrimitiveArray = value.length > 0 && value.every(v => typeof v !== 'object' || v === null);
+      if (isPrimitiveArray){
+        const container = el('div', {});
+        renderTags(value, idx, key, container);
+        content = container;
+      } else {
+        const isObjectArray = value.length === 0 || value.every(v => v !== null && typeof v === 'object' && !Array.isArray(v));
+        if (isObjectArray){
+          const container = el('div', {});
+          renderNestedArray(value, idx, key, container);
+          content = container;
+        } else {
+          content = el('span', { class: 'obj-chip', onclick: () => openJsonModal(idx, key) }, '[配列] ' + value.length + '件 編集');
+        }
+      }
+    } else {
+      content = el('span', { class: 'obj-chip', onclick: () => openJsonModal(idx, key) }, '{...} 編集');
+    }
+
+    const delBtn = el('button', {
+      class: 'icon-btn', title: 'このレコードから「' + key + '」を削除（他の行や列自体には影響しません）',
+      onclick: () => { pushUndo(); delete state.records[idx][key]; markDirty(); render(); }
+    }, '🗑');
+    return el('div', { class: 'cell-wrap' }, content, delBtn);
+  }
+
+  // ---------------- Nested array-of-objects accordion ----------------
+  function renderNestedField(item, k, repaint){
+    const value = item[k];
+    const type = valueType(value);
+    const field = el('div', { class: 'nested-field' });
+    field.appendChild(el('span', { class: 'nested-field-label' }, k));
+
+    if (type === 'boolean'){
+      field.appendChild(el('input', {
+        type: 'checkbox', checked: value ? 'checked' : null,
+        onchange: (e) => { pushUndo(); item[k] = e.target.checked; markDirty(); }
+      }));
+    } else if (type === 'number'){
+      field.appendChild(el('input', {
+        type: 'number', value: value,
+        oninput: (e) => { pushUndo(e.target); item[k] = e.target.value === '' ? '' : parseFloat(e.target.value); markDirty(); }
+      }));
+    } else if (type === 'array'){
+      // 空配列は「まだ何も入っていないタグ欄」として扱う(allergensなどに値を足しやすくするため)。
+      // ただしオブジェクトの配列にしたい場合のために、常に{ }への逃げ道も添えておく
+      // (トップレベルの空配列と違いここにはアコーディオンが無いので、これが無いと後戻りできない)。
+      const isPrimitiveArray = value.every(v => typeof v !== 'object' || v === null);
+      if (isPrimitiveArray){
+        const container = el('div', { class: 'nested-tags-wrap' });
+        renderTags(value, null, k, container);
+        field.appendChild(container);
+        field.appendChild(el('span', {
+          class: 'obj-chip', title: 'JSONとして直接編集（オブジェクトの配列にする場合など）',
+          onclick: () => openJsonModalGeneric(k, value, (parsed) => { pushUndo(); item[k] = parsed; markDirty(); repaint(); })
+        }, '{ }'));
+      } else {
+        field.appendChild(el('span', {
+          class: 'obj-chip',
+          onclick: () => openJsonModalGeneric(k, value, (parsed) => { pushUndo(); item[k] = parsed; markDirty(); repaint(); })
+        }, '[配列] ' + value.length + '件 編集'));
+      }
+    } else if (type === 'object'){
+      field.appendChild(el('span', {
+        class: 'obj-chip',
+        onclick: () => openJsonModalGeneric(k, value, (parsed) => { pushUndo(); item[k] = parsed; markDirty(); repaint(); })
+      }, '{...} 編集'));
+    } else {
+      field.appendChild(el('input', {
+        type: 'text', value: value === undefined || value === null ? '' : String(value),
+        oninput: (e) => { pushUndo(e.target); item[k] = e.target.value; markDirty(); }
+      }));
+    }
+
+    field.appendChild(el('button', {
+      class: 'icon-btn', title: 'この項目を削除',
+      onclick: () => { pushUndo(); delete item[k]; markDirty(); repaint(); }
+    }, '✕'));
+
+    return field;
+  }
+
+  function renderNestedArray(arr, idx, key, container){
+    let expanded = !!arr.__expanded;
+
+    function paint(){
+      arr.__expanded = expanded;
+      container.innerHTML = '';
+      const wrap = el('div', { class: 'nested-array' });
+      wrap.appendChild(el('span', {
+        class: 'obj-chip nested-toggle',
+        onclick: () => { expanded = !expanded; paint(); }
+      }, (expanded ? '▾ ' : '▸ ') + key + ' ' + arr.length + '件'));
+
+      if (expanded){
+        const panel = el('div', { class: 'nested-panel' });
+        arr.forEach((item, ii) => {
+          const body = el('div', { class: 'nested-item-body' });
+          Object.keys(item).forEach(k => body.appendChild(renderNestedField(item, k, paint)));
+          panel.appendChild(el('div', { class: 'nested-item' },
+            el('div', { class: 'nested-item-head' },
+              el('span', {}, '#' + (ii + 1)),
+              el('button', { class: 'icon-btn', title: 'この項目を削除', onclick: () => { pushUndo(); arr.splice(ii, 1); markDirty(); paint(); } }, '🗑')
+            ),
+            body,
+            el('button', {
+              class: 'nested-btn',
+              onclick: () => {
+                const name = prompt('新しい項目名（キー）を入力してください:');
+                if (!name) return;
+                if (name in item){ toast('その項目は既に存在します'); return; }
+                pushUndo();
+                item[name] = '';
+                markDirty();
+                paint();
+              }
+            }, '＋ 項目')
+          ));
+        });
+        panel.appendChild(el('button', {
+          class: 'nested-btn',
+          onclick: () => {
+            pushUndo();
+            const template = {};
+            if (arr[0]) Object.keys(arr[0]).forEach(k => template[k] = emptyValueLike(arr[0][k]));
+            arr.push(template);
+            markDirty();
+            paint();
+          }
+        }, '＋ 追加'));
+        wrap.appendChild(panel);
+      }
+      container.appendChild(wrap);
+    }
+    paint();
+  }
+
+  // ---------------- Nested JSON modal ----------------
+  function openJsonModalGeneric(label, value, onSave){
+    const overlay = el('div', { class: 'modal-overlay' });
+    const errBox = el('div', { class: 'modal-err' }, '');
+    const ta = el('textarea', {}, JSON.stringify(value, null, 2));
+    const box = el('div', { class: 'modal-box' },
+      el('h3', {}, label + ' を編集'),
+      el('div', { class: 'hint' }, 'ネストされた構造はJSONとして直接編集します。'),
+      ta,
+      errBox,
+      el('div', { class: 'modal-actions' },
+        el('button', { class: 'btn ghost on-light', onclick: () => overlay.remove() }, 'キャンセル'),
+        el('button', { class: 'btn primary', onclick: () => {
+          try{
+            const parsed = JSON.parse(ta.value);
+            overlay.remove();
+            onSave(parsed);
+          }catch(e){ errBox.textContent = '⚠ ' + e.message; }
+        }}, '保存')
+      )
+    );
+    overlay.appendChild(box);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+    ta.focus();
+  }
+
+  function openJsonModal(idx, key){
+    openJsonModalGeneric(key, state.records[idx][key], (parsed) => {
+      pushUndo();
+      updateValue(idx, key, parsed);
+      render();
+    });
+  }
+
+  // ---------------- Render: table ----------------
+  function renderTable(){
+    const thead = $('#theadRow');
+    const tbody = $('#tbody');
+    thead.innerHTML = '';
+    tbody.innerHTML = '';
+
+    thead.appendChild(el('th', {}, ''));
+    state.columns.forEach((col, i) => {
+      thead.appendChild(el('th', {},
+        el('span', { class: 'col-move', title: '左（前）へ移動', onclick: () => moveColumn(col, -1) }, '◀'),
+        col,
+        el('span', { class: 'col-move', title: '右（後）へ移動', onclick: () => moveColumn(col, 1) }, '▶'),
+        el('span', { class: 'del-col', onclick: () => deleteColumn(col) }, '✕')
+      ));
+    });
+    thead.appendChild(el('th', {}, ''));
+
+    state.records.forEach((record, idx) => {
+      if (!matchesQuery(record)) return;
+      const tr = el('tr', {});
+      tr.appendChild(el('td', {}, ''));
+      state.columns.forEach(col => {
+        const td = el('td', {}, renderCellContent(idx, col));
+        tr.appendChild(td);
+      });
+      tr.appendChild(el('td', { class: 'row-actions' },
+        el('button', { class: 'icon-btn', title: '削除', onclick: () => deleteRecord(idx) }, '🗑')
+      ));
+      tbody.appendChild(tr);
+    });
+  }
+
+  // ---------------- Render: cards ----------------
+  function renderCards(){
+    const grid = $('#cardGrid');
+    grid.innerHTML = '';
+    state.records.forEach((record, idx) => {
+      if (!matchesQuery(record)) return;
+      const card = el('div', { class: 'rec-card' });
+      state.columns.forEach(col => {
+        if (!(col in record)) return; // このレコードに存在しない項目はカードごと非表示
+        const field = el('div', { class: 'rec-field' },
+          el('div', { class: 'rec-label-row' },
+            el('span', { class: 'rec-label' }, col),
+            el('span', { class: 'card-move' },
+              el('span', { title: '上へ移動', onclick: () => moveColumn(col, -1) }, '▲'),
+              el('span', { title: '下へ移動', onclick: () => moveColumn(col, 1) }, '▼')
+            )
+          ),
+          el('div', { class: 'rec-value' }, renderCellContent(idx, col))
+        );
+        card.appendChild(field);
+      });
+      card.appendChild(el('div', { class: 'card-top-row' },
+        el('span', {}, ''),
+        el('div', { class: 'card-actions' },
+          el('button', { class: 'icon-btn', title: '削除', onclick: () => deleteRecord(idx) }, '🗑')
+        )
+      ));
+      grid.appendChild(card);
+    });
+  }
+
+  function render(){
+    if (state.view === 'table'){
+      $('#tableView').classList.remove('hidden');
+      $('#cardView').classList.add('hidden');
+      renderTable();
+    } else {
+      $('#cardView').classList.remove('hidden');
+      $('#tableView').classList.add('hidden');
+      renderCards();
+    }
+    $('#fileTagText').textContent = state.fileName + (state.fileHandle ? ' (直接保存可)' : '');
+  }
+
+  // ---------------- Wire up controls ----------------
+  $('#openBtn').addEventListener('click', openFile);
+  $('#openBtn2').addEventListener('click', openFile);
+  $('#demoBtn').addEventListener('click', loadDemo);
+  $('#saveBtn').addEventListener('click', saveFile);
+  $('#saveAsBtn').addEventListener('click', () => saveFileAs());
+  $('#undoBtn').addEventListener('click', undo);
+  document.addEventListener('keydown', (e) => {
+    const mod = e.metaKey || e.ctrlKey;
+    if (!mod || e.shiftKey || e.key.toLowerCase() !== 'z') return;
+    const active = document.activeElement;
+    const isEditable = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable);
+    if (isEditable) return; // let the browser's native text-field undo handle it
+    e.preventDefault();
+    undo();
+  });
+  $('#addRecordBtn').addEventListener('click', addRecord);
+  $('#addColBtn').addEventListener('click', addColumn);
+  const debouncedSearchRender = debounce(() => render(), 150);
+  $('#searchInput').addEventListener('input', (e) => { state.query = e.target.value; debouncedSearchRender(); });
+  $('#tableToggle').addEventListener('click', () => { state.view = 'table'; $('#tableToggle').classList.add('active'); $('#cardToggle').classList.remove('active'); render(); });
+  $('#cardToggle').addEventListener('click', () => { state.view = 'card'; $('#cardToggle').classList.add('active'); $('#tableToggle').classList.remove('active'); render(); });
+
+  window.addEventListener('beforeunload', (e) => {
+    if (state.dirty){
+      e.preventDefault();
+      e.returnValue = '';
+    }
+  });
+
+})();
+</script>
+</body>
+</html>
