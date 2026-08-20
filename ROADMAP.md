@@ -6,10 +6,14 @@ Today, JSON Ledger is scoped to editing a single JSON file at a time.
 
 ## Directions being considered
 
-- [ ] Column-based filtering and sorting, alongside the existing full-text search
+- ~~Column-based filtering and sorting, alongside the existing full-text search~~
+  - Sorting: implemented (any column, ascending/descending, including _added_at)
+  - Filtering: not yet implemented (a separate axis from the existing tag filter and full-text search)
 - [ ] Optional JSON Schema validation for records
 - [ ] Opening a folder and treating several JSON files as related tables
 - [ ] A lightweight query syntax for filtering (something in the spirit of JMESPath)
+- [ ] Per-column show/hide toggling (e.g. for users who want to hide the tags column)
+  - Persistence policy (saved into the file vs. session-only) not yet decided
 
 ## Out of scope
 
@@ -29,10 +33,14 @@ Thoughts and pull requests are welcome. For anything beyond a small fix, please 
 
 ## 検討中の方向性
 
-- [ ] 既存の全文検索に加えた、列指定でのフィルタ・ソート機能
+- ~~列指定でのフィルタ・ソート機能~~
+  - ソート: 実装済み（任意カラム昇順/降順、_added_at含む）
+  - フィルタ: 未実装（既存のタグ絞り込み・検索とは別軸での列指定フィルタ）
 - [ ] レコードに対するオプショナルなJSON Schemaバリデーション
 - [ ] フォルダを開いて、複数のJSONファイルを関連するテーブルとして扱う機能
 - [ ] 軽量なクエリ構文によるフィルタリング（JMESPathのような方向性）
+- [ ] 任意カラムの表示/非表示切り替え（例: タグ列を隠したいユーザー向け）
+  - 状態の永続化方針（ファイル保存 vs セッションのみ）は未検討
 
 ## 対象外
 
