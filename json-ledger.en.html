@@ -192,6 +192,20 @@
   }
   .tag .x{ cursor:pointer; opacity:0.6; font-size:11px; }
   .tag .x:hover{ opacity:1; color: var(--stamp-bright); }
+  .tag .tag-text{ cursor:pointer; }
+  .tag.active{ background: var(--stamp-bright); box-shadow: 0 0 0 2px var(--brass-bright); }
+
+  .active-filter-bar{
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    margin: -8px 0 18px; padding: 8px 12px; border: 1px solid var(--brass);
+    border-radius: 4px; background: rgba(212,175,94,0.08);
+    font-family: var(--font-data); font-size:12px; color: var(--brass-bright);
+  }
+  .active-filter-bar .clear-filter{
+    cursor:pointer; background: var(--stamp-bright); color: var(--card); border:none;
+    padding: 3px 10px; border-radius: 10px; font-family: var(--font-label); font-size:11px;
+    letter-spacing:0.5px; text-transform:uppercase;
+  }
   .tag-add{
     border: 1px dashed var(--ink-soft); background:transparent; font-size:11px;
     padding: 3px 8px; border-radius: 10px; width: 74px; font-family: var(--font-ui);
@@ -354,6 +368,11 @@
     </div>
   </div>
 
+  <div id="activeFilterBar" class="active-filter-bar hidden">
+    <span id="activeFilterText"></span>
+    <button class="clear-filter" id="clearFilterBtn">✕ Clear filter</button>
+  </div>
+
   <div id="emptyState">
     <div class="icon">🗂️</div>
     <h2>No file open yet</h2>
@@ -396,6 +415,7 @@
     wrapper: null,        // { type: 'root-array' } | { type: 'wrapped', key: 'items' } | { type: 'single-object' }
     view: 'table',
     query: '',
+    tagFilter: null,       // when set, only records containing this tag value (in any array field) are shown
     dirty: false,          // true when there are unsaved edits
     undoStack: []          // JSON snapshots of {records, columns} taken before each edit
   };
@@ -513,7 +533,9 @@
     state.fileName = name || 'untitled.json';
     state.dirty = false;
     state.undoStack = [];
+    state.tagFilter = null;
     updateUndoBtn();
+    updateActiveFilterBar();
     computeColumns();
     setControlsEnabled(true);
     render();
@@ -595,7 +617,9 @@
     state.fileHandle = null;
     state.dirty = false;
     state.undoStack = [];
+    state.tagFilter = null;
     updateUndoBtn();
+    updateActiveFilterBar();
     computeColumns();
     setControlsEnabled(true);
     render();
@@ -757,6 +781,32 @@
     return JSON.stringify(record).toLowerCase().includes(q);
   }
 
+  // A record matches the active tag filter if any of its top-level array
+  // properties contains a primitive value that equals the selected tag exactly.
+  function matchesTagFilter(record){
+    if (!state.tagFilter) return true;
+    return Object.values(record).some(v =>
+      Array.isArray(v) && v.some(item => (typeof item !== 'object' || item === null) && String(item) === state.tagFilter)
+    );
+  }
+
+  function toggleTagFilter(tagStr){
+    state.tagFilter = (state.tagFilter === tagStr) ? null : tagStr;
+    updateActiveFilterBar();
+    render();
+  }
+
+  function updateActiveFilterBar(){
+    const bar = $('#activeFilterBar');
+    if (!bar) return;
+    if (state.tagFilter){
+      bar.classList.remove('hidden');
+      $('#activeFilterText').textContent = '🏷 Filtering by tag “' + state.tagFilter + '”';
+    } else {
+      bar.classList.add('hidden');
+    }
+  }
+
   // ---------------- Cell renderers ----------------
   function valueType(v){
     if (Array.isArray(v)) return 'array';
@@ -770,9 +820,11 @@
     container.innerHTML = '';
     const wrap = el('div', { class: 'tags' });
     arr.forEach((tag, ti) => {
-      const chip = el('span', { class: 'tag' },
-        String(tag),
-        el('span', { class: 'x', onclick: () => { pushUndo(); arr.splice(ti,1); markDirty(); renderTags(arr, idx, key, container); } }, '✕')
+      const tagStr = String(tag);
+      const isActive = state.tagFilter === tagStr;
+      const chip = el('span', { class: 'tag' + (isActive ? ' active' : ''), title: 'Click to filter by this tag' },
+        el('span', { class: 'tag-text', onclick: () => toggleTagFilter(tagStr) }, tagStr),
+        el('span', { class: 'x', onclick: (e) => { e.stopPropagation(); pushUndo(); arr.splice(ti,1); markDirty(); renderTags(arr, idx, key, container); } }, '✕')
       );
       wrap.appendChild(chip);
     });
@@ -858,6 +910,31 @@
     return el('div', { class: 'cell-wrap' }, ...children);
   }
 
+  // Infers whether an empty array field is used as a "tag array" (primitives) or an
+  // "object array" elsewhere in the dataset, based on how the same key is actually
+  // used in other records. Falls back to 'primitive' when there's no evidence either
+  // way (favors showing the tag-add input).
+  function inferArrayKind(key){
+    for (const r of state.records){
+      const v = r[key];
+      if (Array.isArray(v) && v.length > 0){
+        if (v.every(item => typeof item !== 'object' || item === null)) return 'primitive';
+        if (v.every(item => item !== null && typeof item === 'object' && !Array.isArray(item))) return 'object';
+        return 'mixed';
+      }
+    }
+    return 'primitive';
+  }
+
+  function arrayCellKind(value, key){
+    if (value.length > 0){
+      if (value.every(v => typeof v !== 'object' || v === null)) return 'primitive';
+      if (value.every(v => v !== null && typeof v === 'object' && !Array.isArray(v))) return 'object';
+      return 'mixed';
+    }
+    return inferArrayKind(key);
+  }
+
   function renderCellContent(idx, key){
     const value = state.records[idx][key];
     const type = valueType(value);
@@ -867,23 +944,20 @@
 
     let content;
     if (type === 'array'){
-      // non-empty array of only primitives -> tag chips. Everything else (empty array,
-      // or array containing objects) -> the nested accordion, so an emptied-out
-      // variants array stays editable instead of silently turning into a tag field.
-      const isPrimitiveArray = value.length > 0 && value.every(v => typeof v !== 'object' || v === null);
-      if (isPrimitiveArray){
+      // Kind (primitive array / object array / mixed) is inferred, for empty arrays,
+      // from how the same key is used elsewhere \u2014 so clearing it out doesn't flip
+      // the field to a different editor UI.
+      const kind = arrayCellKind(value, key);
+      if (kind === 'primitive'){
         const container = el('div', {});
         renderTags(value, idx, key, container);
         content = container;
+      } else if (kind === 'object'){
+        const container = el('div', {});
+        renderNestedArray(value, idx, key, container);
+        content = container;
       } else {
-        const isObjectArray = value.length === 0 || value.every(v => v !== null && typeof v === 'object' && !Array.isArray(v));
-        if (isObjectArray){
-          const container = el('div', {});
-          renderNestedArray(value, idx, key, container);
-          content = container;
-        } else {
-          content = el('span', { class: 'obj-chip', onclick: () => openJsonModal(idx, key) }, '[Array] ' + value.length + ' items \u2014 Edit');
-        }
+        content = el('span', { class: 'obj-chip', onclick: () => openJsonModal(idx, key) }, '[Array] ' + value.length + ' items \u2014 Edit');
       }
     } else {
       content = el('span', { class: 'obj-chip', onclick: () => openJsonModal(idx, key) }, '{...} Edit');
@@ -1061,7 +1135,7 @@
     thead.appendChild(el('th', {}, ''));
 
     state.records.forEach((record, idx) => {
-      if (!matchesQuery(record)) return;
+      if (!matchesQuery(record) || !matchesTagFilter(record)) return;
       const tr = el('tr', {});
       tr.appendChild(el('td', {}, ''));
       state.columns.forEach(col => {
@@ -1080,7 +1154,7 @@
     const grid = $('#cardGrid');
     grid.innerHTML = '';
     state.records.forEach((record, idx) => {
-      if (!matchesQuery(record)) return;
+      if (!matchesQuery(record) || !matchesTagFilter(record)) return;
       const card = el('div', { class: 'rec-card' });
       state.columns.forEach(col => {
         if (!(col in record)) return; // このレコードに存在しない項目はカードごと非表示
@@ -1139,6 +1213,7 @@
   $('#addColBtn').addEventListener('click', addColumn);
   const debouncedSearchRender = debounce(() => render(), 150);
   $('#searchInput').addEventListener('input', (e) => { state.query = e.target.value; debouncedSearchRender(); });
+  $('#clearFilterBtn').addEventListener('click', () => { state.tagFilter = null; updateActiveFilterBar(); render(); });
   $('#tableToggle').addEventListener('click', () => { state.view = 'table'; $('#tableToggle').classList.add('active'); $('#cardToggle').classList.remove('active'); render(); });
   $('#cardToggle').addEventListener('click', () => { state.view = 'card'; $('#cardToggle').classList.add('active'); $('#tableToggle').classList.remove('active'); render(); });
 
