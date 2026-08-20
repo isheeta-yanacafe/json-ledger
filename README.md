@@ -54,6 +54,8 @@ Direct save/overwrite requires the File System Access API (available in Chromium
 
 https://isheeta-yanacafe.github.io/json-ledger/
 
+`index.html` in this repo is not a past/stale version of the app — it's a small redirect stub (`json-ledger.html` is the real app) that makes the GitHub Pages root URL above land on the Japanese version, with a link to the English one. Don't delete it.
+
 ## Running locally
 
 No installation or build step is required — download `json-ledger.html` and open it directly in a browser.
@@ -123,6 +125,8 @@ MIT — Copyright (c) 2026 Mosozo Inc. See [LICENSE](./LICENSE) for the full tex
 ## ライブデモ
 
 https://isheeta-yanacafe.github.io/json-ledger/
+
+このリポジトリ直下の `index.html` は、アプリの過去バージョンではありません。実体は `json-ledger.html`（本体）への**リダイレクト用スタブ**で、上記GitHub PagesのルートURLに日本語版へ転送する導線（英語版へのリンクも含む）を提供しています。削除しないでください。
 
 ## ローカルでの使い方
 
