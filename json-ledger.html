@@ -94,6 +94,14 @@
     font-size:12px; opacity:0.6;
   }
 
+  .sort-wrap{ display:flex; align-items:center; gap:6px; }
+  .sort-wrap select{
+    font-family: var(--font-data); font-size: 12px;
+    padding: 8px 10px; border-radius: 3px; border: 1px solid var(--line);
+    background: rgba(255,255,255,0.05); color: var(--card);
+  }
+  .sort-wrap select:disabled{ opacity:0.35; }
+
   /* drawer-label style view toggle */
   .toggle{
     display:flex; border: 1px solid var(--brass); border-radius: 3px; overflow:hidden;
@@ -329,6 +337,10 @@
     margin-top: 30px; font-size: 11px; color: rgba(243,236,216,0.4); font-family: var(--font-data);
     text-align:center;
   }
+  footer.notice .added-at-toggle{
+    margin-left: 10px; cursor:pointer; user-select:none;
+  }
+  footer.notice .added-at-toggle input{ vertical-align:middle; margin-right:4px; cursor:pointer; }
 
   @media (max-width: 640px){
     .masthead{ flex-direction:column; align-items:flex-start; }
@@ -361,6 +373,10 @@
     <button class="btn ghost" id="addColBtn" disabled>＋ 項目追加</button>
     <div class="search-wrap">
       <input type="text" id="searchInput" placeholder="検索..." disabled>
+    </div>
+    <div class="sort-wrap">
+      <select id="sortKeySelect" disabled><option value="">並び替えなし</option></select>
+      <button class="btn ghost" id="sortDirToggle" disabled title="昇順/降順を切り替え">▲ 昇順</button>
     </div>
     <div class="toggle">
       <button id="tableToggle" class="active">テーブル</button>
@@ -396,7 +412,10 @@
     <div class="card-grid" id="cardGrid"></div>
   </div>
 
-  <footer class="notice">すべての処理はブラウザ内で完結します。データは外部に送信されません。</footer>
+  <footer class="notice">
+    すべての処理はブラウザ内で完結します。データは外部に送信されません。
+    <label class="added-at-toggle"><input type="checkbox" id="showAddedAtToggle"> 追加日時を表示する</label>
+  </footer>
 </div>
 
 <input type="file" id="fileInput" accept=".json,application/json" class="hidden">
@@ -416,6 +435,9 @@
     view: 'table',
     query: '',
     tagFilter: null,       // when set, only records containing this tag value (in any array field) are shown
+    showAddedAt: false,    // when true, _added_at is included in computeColumns() and shown as a normal column
+    sortKey: null,         // column key to sort the display order by, or null for original array order
+    sortDir: 'asc',        // 'asc' | 'desc' — ignored when sortKey is null
     dirty: false,          // true when there are unsaved edits
     undoStack: []          // JSON snapshots of {records, columns} taken before each edit
   };
@@ -518,7 +540,10 @@
   function computeColumns(){
     const cols = [];
     const seen = new Set();
-    state.records.forEach(r => Object.keys(r).forEach(k => { if(!seen.has(k)){ seen.add(k); cols.push(k); }}));
+    state.records.forEach(r => Object.keys(r).forEach(k => {
+      if (k === '_added_at' && !state.showAddedAt) return; // system field, hidden unless explicitly shown
+      if(!seen.has(k)){ seen.add(k); cols.push(k); }
+    }));
     state.columns = cols;
   }
 
@@ -534,6 +559,8 @@
     state.dirty = false;
     state.undoStack = [];
     state.tagFilter = null;
+    state.sortKey = null;
+    state.sortDir = 'asc';
     updateUndoBtn();
     updateActiveFilterBar();
     computeColumns();
@@ -558,7 +585,7 @@
   }
 
   function setControlsEnabled(on){
-    ['saveBtn','saveAsBtn','addColBtn','searchInput'].forEach(id => $('#'+id).disabled = !on);
+    ['saveBtn','saveAsBtn','addColBtn','searchInput','sortKeySelect','sortDirToggle'].forEach(id => $('#'+id).disabled = !on);
     $('#addRecordBtn').disabled = !on || (on && state.wrapper && state.wrapper.type === 'single-object');
     $('#fileTag').classList.toggle('hidden', !on);
     updateFileTag();
@@ -618,6 +645,8 @@
     state.dirty = false;
     state.undoStack = [];
     state.tagFilter = null;
+    state.sortKey = null;
+    state.sortDir = 'asc';
     updateUndoBtn();
     updateActiveFilterBar();
     computeColumns();
@@ -707,7 +736,9 @@
     pushUndo();
     const blank = {};
     state.columns.forEach(c => blank[c] = inferColumnDefault(c));
+    blank._added_at = new Date().toISOString();
     state.records.push(blank);
+    computeColumns();
     markDirty();
     render();
   }
@@ -805,6 +836,54 @@
     } else {
       bar.classList.add('hidden');
     }
+  }
+
+  // ---------------- Sorting (display order only — never reorders state.records) ----------------
+  const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+
+  function compareTypedValues(va, vb){
+    if (typeof va === 'number' && typeof vb === 'number') return va - vb;
+    if (typeof va === 'string' && typeof vb === 'string' && ISO_DATE_RE.test(va) && ISO_DATE_RE.test(vb)){
+      const da = new Date(va).getTime(), db = new Date(vb).getTime();
+      if (!isNaN(da) && !isNaN(db)) return da - db;
+    }
+    return String(va).localeCompare(String(vb));
+  }
+
+  // undefined values always sort to the end, regardless of asc/desc.
+  function compareSortValues(va, vb, dir){
+    const aMissing = va === undefined;
+    const bMissing = vb === undefined;
+    if (aMissing && bMissing) return 0;
+    if (aMissing) return 1;
+    if (bMissing) return -1;
+    const mul = dir === 'desc' ? -1 : 1;
+    return mul * compareTypedValues(va, vb);
+  }
+
+  // Returns the indices into state.records in display order. Does not mutate state.records —
+  // sorting only affects what render() draws, never the saved array order.
+  function getDisplayOrder(){
+    const indices = state.records.map((_, i) => i);
+    if (!state.sortKey) return indices;
+    const key = state.sortKey;
+    const dir = state.sortDir;
+    return indices.sort((ia, ib) => compareSortValues(state.records[ia][key], state.records[ib][key], dir));
+  }
+
+  function updateSortControls(){
+    const select = $('#sortKeySelect');
+    if (!select) return;
+    const keys = state.columns.slice();
+    if (!keys.includes('_added_at')) keys.push('_added_at');
+    if (!keys.includes(state.sortKey)) state.sortKey = null;
+    select.innerHTML = '';
+    select.appendChild(el('option', { value: '' }, '並び替えなし'));
+    keys.forEach(k => select.appendChild(el('option', { value: k }, k)));
+    select.value = state.sortKey || '';
+    const dirBtn = $('#sortDirToggle');
+    dirBtn.textContent = state.sortDir === 'desc' ? '▼ 降順' : '▲ 昇順';
+    dirBtn.disabled = !state.sortKey;
   }
 
   // ---------------- Cell renderers ----------------
@@ -1132,7 +1211,8 @@
     });
     thead.appendChild(el('th', {}, ''));
 
-    state.records.forEach((record, idx) => {
+    getDisplayOrder().forEach(idx => {
+      const record = state.records[idx];
       if (!matchesQuery(record) || !matchesTagFilter(record)) return;
       const tr = el('tr', {});
       tr.appendChild(el('td', {}, ''));
@@ -1151,7 +1231,8 @@
   function renderCards(){
     const grid = $('#cardGrid');
     grid.innerHTML = '';
-    state.records.forEach((record, idx) => {
+    getDisplayOrder().forEach(idx => {
+      const record = state.records[idx];
       if (!matchesQuery(record) || !matchesTagFilter(record)) return;
       const card = el('div', { class: 'rec-card' });
       state.columns.forEach(col => {
@@ -1188,6 +1269,7 @@
       $('#tableView').classList.add('hidden');
       renderCards();
     }
+    updateSortControls();
     updateFileTag();
   }
 
@@ -1212,6 +1294,9 @@
   const debouncedSearchRender = debounce(() => render(), 150);
   $('#searchInput').addEventListener('input', (e) => { state.query = e.target.value; debouncedSearchRender(); });
   $('#clearFilterBtn').addEventListener('click', () => { state.tagFilter = null; updateActiveFilterBar(); render(); });
+  $('#sortKeySelect').addEventListener('change', (e) => { state.sortKey = e.target.value || null; render(); });
+  $('#sortDirToggle').addEventListener('click', () => { state.sortDir = state.sortDir === 'desc' ? 'asc' : 'desc'; render(); });
+  $('#showAddedAtToggle').addEventListener('change', (e) => { state.showAddedAt = e.target.checked; computeColumns(); render(); });
   $('#tableToggle').addEventListener('click', () => { state.view = 'table'; $('#tableToggle').classList.add('active'); $('#cardToggle').classList.remove('active'); render(); });
   $('#cardToggle').addEventListener('click', () => { state.view = 'card'; $('#cardToggle').classList.add('active'); $('#tableToggle').classList.remove('active'); render(); });
 
@@ -1221,6 +1306,17 @@
       e.returnValue = '';
     }
   });
+
+  // Test-only hook: never active in normal use. A test harness sets
+  // window.__TEST__ = true before this script runs (e.g. Playwright's
+  // addInitScript) to reach into pure-logic internals without a rewrite.
+  // See tests/core.test.js.
+  if (typeof window !== 'undefined' && window.__TEST__){
+    window.__jsonLedgerTest = {
+      state, normalize, serialize, computeColumns, loadJSONText,
+      addRecord, getDisplayOrder, compareSortValues
+    };
+  }
 
 })();
 </script>
