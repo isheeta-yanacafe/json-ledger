@@ -215,3 +215,23 @@ test('compareSortValues: both missing compares equal', async () => {
   const result = await callTest('compareSortValues', undefined, undefined, 'asc');
   assert.equal(result, 0);
 });
+
+// ---------------- formatAddedAt() (display-only formatting) ----------------
+
+test('formatAddedAt: formats a valid ISO8601 UTC string as JST, distinct from the raw string', async () => {
+  const raw = '2026-08-20T11:25:15.000Z'; // 20:25:15 JST
+  const formatted = await callTest('formatAddedAt', raw);
+  assert.notEqual(formatted, raw, 'display string differs from the stored raw ISO string');
+  assert.ok(formatted.includes('2026'), 'formatted string mentions the year: ' + formatted);
+  assert.ok(formatted.includes('20:25:15') || formatted.includes('8:20'), 'formatted string reads as JST wall-clock time: ' + formatted);
+});
+
+test('formatAddedAt: empty/undefined values pass through unchanged', async () => {
+  assert.equal(await callTest('formatAddedAt', ''), '');
+  assert.equal(await callTest('formatAddedAt', undefined), undefined);
+});
+
+test('formatAddedAt: unparseable strings pass through unchanged rather than becoming "Invalid Date"', async () => {
+  const junk = 'not a date';
+  assert.equal(await callTest('formatAddedAt', junk), junk);
+});

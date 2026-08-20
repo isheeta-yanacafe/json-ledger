@@ -923,6 +923,16 @@
     container.appendChild(wrap);
   }
 
+  // _added_at の表示専用フォーマッタ。保存値・ソート値には一切影響しない
+  // （serialize()/getDisplayOrder() は常に state.records の生のISO8601文字列を見る）。
+  // パースできない値はそのまま返す（壊れた値でも編集不能な "Invalid Date" にしない）。
+  function formatAddedAt(iso){
+    if (!iso) return iso;
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    return d.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
+  }
+
   function renderPrimitiveCell(value, idx, key){
     const hasKey = key in state.records[idx];
     // 未設定セルは、他のレコードでこの項目が何型で使われているかを見て、
@@ -941,6 +951,27 @@
         oninput: (e) => { pushUndo(e.target); updateValue(idx, key, e.target.value === '' ? '' : parseFloat(e.target.value)); },
         onblur: () => { if (!hasKey) render(); } // 未設定→入力ありに変わったら再描画して🗑等を出す
       });
+    } else if (key === '_added_at'){
+      // 保存・ソートに使う生の値は常にISO8601 UTC文字列のまま。表示だけJSTの
+      // 読みやすい形式に整形し、フォーカス（編集開始）時だけ生の値に戻す。
+      const raw = value === undefined || value === null ? '' : String(value);
+      const formatted = formatAddedAt(raw);
+      const attrs = {
+        class: 'cell-editable' + (hasKey ? '' : ' cell-unset'),
+        contenteditable: 'true',
+        onfocus: (e) => { e.target.textContent = raw; },
+        onblur: (e) => {
+          const text = e.target.textContent;
+          if (!hasKey && text === ''){ e.target.textContent = ''; return; } // クリックして離れただけ、未入力のまま維持
+          if (hasKey && text === raw){ e.target.textContent = formatted; return; } // 実際の編集が無いなら表示形式に戻すだけ
+          pushUndo();
+          updateValue(idx, key, text);
+          e.target.textContent = formatAddedAt(text);
+          if (!hasKey) render();
+        }
+      };
+      if (!hasKey) attrs['data-placeholder'] = '未設定（クリックして入力）';
+      control = formatted ? el('div', attrs, formatted) : el('div', attrs);
     } else {
       // string（配列/オブジェクト型と推定されても、未設定の間はテキストのプレースホルダーのまま）
       const displayValue = value === undefined || value === null ? '' : String(value);
@@ -1314,7 +1345,7 @@
   if (typeof window !== 'undefined' && window.__TEST__){
     window.__jsonLedgerTest = {
       state, normalize, serialize, computeColumns, loadJSONText,
-      addRecord, getDisplayOrder, compareSortValues
+      addRecord, getDisplayOrder, compareSortValues, formatAddedAt
     };
   }
 
