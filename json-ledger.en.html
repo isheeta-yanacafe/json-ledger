@@ -521,11 +521,25 @@
     return true;
   }
 
+  function updateFileTag(){
+    let text = state.fileName + (state.fileHandle ? ' (direct save enabled)' : '');
+    const total = state.records.length;
+    if (total > 0){
+      if (state.query){
+        const filtered = state.records.filter(matchesQuery).length;
+        text += ' · ' + filtered.toLocaleString() + ' / ' + total.toLocaleString() + ' records';
+      } else {
+        text += ' · ' + total.toLocaleString() + ' records';
+      }
+    }
+    $('#fileTagText').textContent = text;
+  }
+
   function setControlsEnabled(on){
     ['saveBtn','saveAsBtn','addColBtn','searchInput'].forEach(id => $('#'+id).disabled = !on);
     $('#addRecordBtn').disabled = !on || (on && state.wrapper && state.wrapper.type === 'single-object');
     $('#fileTag').classList.toggle('hidden', !on);
-    $('#fileTagText').textContent = state.fileName + (state.fileHandle ? ' (direct save enabled)' : '');
+    updateFileTag();
     $('#emptyState').classList.toggle('hidden', on);
   }
 
@@ -1102,7 +1116,7 @@
       $('#tableView').classList.add('hidden');
       renderCards();
     }
-    $('#fileTagText').textContent = state.fileName + (state.fileHandle ? ' (direct save enabled)' : '');
+    updateFileTag();
   }
 
   // ---------------- Wire up controls ----------------
