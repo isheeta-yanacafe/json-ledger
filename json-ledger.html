@@ -521,11 +521,25 @@
     return true;
   }
 
+  function updateFileTag(){
+    let text = state.fileName + (state.fileHandle ? ' (直接保存可)' : '');
+    const total = state.records.length;
+    if (total > 0){
+      if (state.query){
+        const filtered = state.records.filter(matchesQuery).length;
+        text += ' ・ ' + filtered.toLocaleString() + ' / ' + total.toLocaleString() + '件';
+      } else {
+        text += ' ・ ' + total.toLocaleString() + '件';
+      }
+    }
+    $('#fileTagText').textContent = text;
+  }
+
   function setControlsEnabled(on){
     ['saveBtn','saveAsBtn','addColBtn','searchInput'].forEach(id => $('#'+id).disabled = !on);
     $('#addRecordBtn').disabled = !on || (on && state.wrapper && state.wrapper.type === 'single-object');
     $('#fileTag').classList.toggle('hidden', !on);
-    $('#fileTagText').textContent = state.fileName + (state.fileHandle ? ' (直接保存可)' : '');
+    updateFileTag();
     $('#emptyState').classList.toggle('hidden', on);
   }
 
@@ -1102,7 +1116,7 @@
       $('#tableView').classList.add('hidden');
       renderCards();
     }
-    $('#fileTagText').textContent = state.fileName + (state.fileHandle ? ' (直接保存可)' : '');
+    updateFileTag();
   }
 
   // ---------------- Wire up controls ----------------
