@@ -4,6 +4,10 @@ Nothing on this page is a promise. These are directions the project might explor
 
 Today, JSON Ledger is scoped to editing a single JSON file at a time.
 
+## Known bugs
+
+- [ ] `json-ledger.en.html`: the "not set" cell placeholder text (shown on an empty editable cell) is still in Japanese (`未設定（クリックして入力）`) instead of English — a leftover from the original translation pass
+
 ## Directions being considered
 
 - ~~Column-based filtering and sorting, alongside the existing full-text search~~
@@ -30,6 +34,10 @@ Thoughts and pull requests are welcome. For anything beyond a small fix, please 
 このページに書かれているものは、どれも確約ではありません。プロジェクトが検討しうる方向性を並べているだけで、スケジュールでも実装の保証でもありません。「バックログ」ではなく「考える価値のあること」として読んでください。
 
 現状のJSON Ledgerは、1つのJSONファイルを編集することに機能を絞っています。
+
+## 既知の不具合
+
+- [ ] `json-ledger.en.html`: 未設定セルのプレースホルダー文言（空の編集可能セルに表示される案内）が英語版なのに日本語（`未設定（クリックして入力）`）のまま残っている（当初の翻訳作業の取りこぼし）
 
 ## 検討中の方向性
 
