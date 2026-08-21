@@ -221,6 +221,16 @@
   }
   .tag-add:focus{ outline:none; border-color: var(--felt); }
 
+  .plain-list{ display:flex; flex-direction:column; gap:3px; align-items:stretch; width:100%; }
+  .plain-list-item{
+    display:flex; align-items:flex-start; gap:5px; font-size:12px; color: var(--ink);
+    font-family: var(--font-ui); max-width:100%;
+  }
+  .plain-list-item .plain-list-bullet{ opacity:0.5; flex-shrink:0; }
+  .plain-list-item .plain-list-text{ white-space:normal; word-break:break-word; flex:1; }
+  .plain-list-item .x{ cursor:pointer; opacity:0.5; font-size:11px; flex-shrink:0; }
+  .plain-list-item .x:hover{ opacity:1; color: var(--stamp-bright); }
+
   .obj-chip{
     display:inline-block; background: var(--card-dim); border: 1px solid var(--ink-soft);
     padding: 3px 8px; border-radius: 3px; font-size: 11px; cursor:pointer; color: var(--ink-soft);
@@ -923,6 +933,36 @@
     container.appendChild(wrap);
   }
 
+  // 長い要素を含むプリミティブ配列（keyPointsなど）向けの箇条書き表示。
+  // renderTagsと違い、クリックしても state.tagFilter は変化しない（絞り込み機能なし）。
+  // 削除（✕）と追加欄はrenderTagsと同様に残す（配列としての編集自体は必要なため）。
+  function renderList(arr, idx, key, container){
+    container.innerHTML = '';
+    const wrap = el('div', { class: 'plain-list' });
+    arr.forEach((item, ti) => {
+      const row = el('div', { class: 'plain-list-item' },
+        el('span', { class: 'plain-list-bullet' }, '・'),
+        el('span', { class: 'plain-list-text' }, String(item)),
+        el('span', { class: 'x', onclick: () => { pushUndo(); arr.splice(ti,1); markDirty(); renderList(arr, idx, key, container); } }, '✕')
+      );
+      wrap.appendChild(row);
+    });
+    const input = el('input', {
+      class: 'tag-add', placeholder: '+ 追加',
+      onkeydown: (e) => {
+        if (e.key === 'Enter' && e.target.value.trim()){
+          pushUndo();
+          arr.push(e.target.value.trim());
+          e.target.value = '';
+          markDirty();
+          renderList(arr, idx, key, container);
+        }
+      }
+    });
+    wrap.appendChild(input);
+    container.appendChild(wrap);
+  }
+
   // _added_at の表示専用フォーマッタ。保存値・ソート値には一切影響しない
   // （serialize()/getDisplayOrder() は常に state.records の生のISO8601文字列を見る）。
   // パースできない値はそのまま返す（壊れた値でも編集不能な "Invalid Date" にしない）。
@@ -1020,24 +1060,38 @@
     return el('div', { class: 'cell-wrap' }, ...children);
   }
 
+  const TAG_MAX_CHARS = 20; // これを超える要素が1つでもあれば「箇条書き」扱い
+
+  // 配列の全要素がタグとして扱うのにふさわしい短さかどうかを判定する。
+  // 1つでも長い要素があれば、この配列全体を「箇条書きリスト」として扱う。
+  function isTagLikeArray(value){
+    return value.every(item =>
+      (typeof item !== 'object' || item === null) &&
+      String(item).length <= TAG_MAX_CHARS
+    );
+  }
+
   // 空配列の項目が「タグ配列（プリミティブ）」と「オブジェクトの配列」のどちらの
   // 用途で使われているキーかを、他のレコードでの実際の使われ方から推定する。
-  // 手がかりが無ければ 'primitive' 扱い（タグ入力欄を優先表示）。
+  // 手がかりが無ければ 'tag' 扱い（タグ入力欄を優先表示）。
   function inferArrayKind(key){
     for (const r of state.records){
       const v = r[key];
       if (Array.isArray(v) && v.length > 0){
-        if (v.every(item => typeof item !== 'object' || item === null)) return 'primitive';
+        if (v.every(item => typeof item !== 'object' || item === null)) return isTagLikeArray(v) ? 'tag' : 'list';
         if (v.every(item => item !== null && typeof item === 'object' && !Array.isArray(item))) return 'object';
         return 'mixed';
       }
     }
-    return 'primitive';
+    return 'tag';
   }
 
+  // 配列を4種類に分類する: 'tag'（短いプリミティブ、クリックで絞り込み可能）、
+  // 'list'（長い要素を含むプリミティブ、絞り込み不可の箇条書き）、
+  // 'object'（オブジェクトの配列、アコーディオン編集）、'mixed'（型混在、JSON直接編集）。
   function arrayCellKind(value, key){
     if (value.length > 0){
-      if (value.every(v => typeof v !== 'object' || v === null)) return 'primitive';
+      if (value.every(v => typeof v !== 'object' || v === null)) return isTagLikeArray(value) ? 'tag' : 'list';
       if (value.every(v => v !== null && typeof v === 'object' && !Array.isArray(v))) return 'object';
       return 'mixed';
     }
@@ -1056,9 +1110,13 @@
       // 種類（プリミティブ配列 / オブジェクト配列 / 混在）を、空配列の場合は他レコードの
       // 使われ方から推定して判定する（空にした途端に別UIへ化けないように）。
       const kind = arrayCellKind(value, key);
-      if (kind === 'primitive'){
+      if (kind === 'tag'){
         const container = el('div', {});
         renderTags(value, idx, key, container);
+        content = container;
+      } else if (kind === 'list'){
+        const container = el('div', {});
+        renderList(value, idx, key, container);
         content = container;
       } else if (kind === 'object'){
         const container = el('div', {});
@@ -1102,7 +1160,11 @@
       const isPrimitiveArray = value.every(v => typeof v !== 'object' || v === null);
       if (isPrimitiveArray){
         const container = el('div', { class: 'nested-tags-wrap' });
-        renderTags(value, null, k, container);
+        if (isTagLikeArray(value)){
+          renderTags(value, null, k, container);
+        } else {
+          renderList(value, null, k, container);
+        }
         field.appendChild(container);
         field.appendChild(el('span', {
           class: 'obj-chip', title: 'JSONとして直接編集（オブジェクトの配列にする場合など）',
@@ -1345,7 +1407,8 @@
   if (typeof window !== 'undefined' && window.__TEST__){
     window.__jsonLedgerTest = {
       state, normalize, serialize, computeColumns, loadJSONText,
-      addRecord, getDisplayOrder, compareSortValues, formatAddedAt
+      addRecord, getDisplayOrder, compareSortValues, formatAddedAt,
+      isTagLikeArray, arrayCellKind
     };
   }
 

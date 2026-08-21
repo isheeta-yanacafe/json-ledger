@@ -235,3 +235,61 @@ test('formatAddedAt: unparseable strings pass through unchanged rather than beco
   const junk = 'not a date';
   assert.equal(await callTest('formatAddedAt', junk), junk);
 });
+
+// ---------------- isTagLikeArray() / arrayCellKind() (tag vs. list threshold) ----------------
+
+test('isTagLikeArray: true when every element is at or under TAG_MAX_CHARS (20)', async () => {
+  assert.equal(await callTest('isTagLikeArray', ['官民ファンド', '歴史的類似事例']), true);
+});
+
+test('isTagLikeArray: false when even one element exceeds TAG_MAX_CHARS', async () => {
+  const longItem = 'CJ機構：政策目標達成、点の個別投資、政治・官僚の思惑、官僚と有識者懇談会が運用';
+  assert.equal(await callTest('isTagLikeArray', ['短いタグ', longItem]), false);
+});
+
+test('arrayCellKind: an array of short strings is "tag"', async () => {
+  assert.equal(await callTest('arrayCellKind', ['人気', '定番'], 'tags'), 'tag');
+});
+
+test('arrayCellKind: an array containing one long string is "list", even with short elements mixed in', async () => {
+  const longItem = 'これは20文字を大きく超える長い説明文の要素です、以上、テスト用の文言です';
+  assert.equal(await callTest('arrayCellKind', ['短い', longItem], 'keyPoints'), 'list');
+});
+
+// ---------------- UI: tag chips vs. plain list rendering, and tagFilter interaction ----------------
+
+test('UI: a short-string array renders as tag chips; clicking one sets state.tagFilter and filters rows', async () => {
+  await callTest('loadJSONText', JSON.stringify([
+    { name: 'Item A', tags: ['人気', '定番'] },
+    { name: 'Item B', tags: ['季節限定'] }
+  ]), 'tag-ui.json');
+
+  const tagChipCount = await page.$$eval('#tbody .tag', els => els.length);
+  assert.equal(tagChipCount, 3, 'renders one .tag chip per tag value across both rows');
+
+  await page.click('#tbody .tag .tag-text >> text=人気');
+  let state = await getState();
+  assert.equal(state.tagFilter, '人気', 'clicking a tag chip sets state.tagFilter');
+
+  const visibleRows = await page.$$eval('#tbody tr', rows => rows.length);
+  assert.equal(visibleRows, 1, 'only the matching record row is shown');
+
+  await setState({ tagFilter: null });
+});
+
+test('UI: an array with a long element renders as a plain list; clicking it does not touch state.tagFilter', async () => {
+  const longItem = 'これは20文字を大きく超える長い説明文の要素です、以上、テスト用の文言です';
+  await callTest('loadJSONText', JSON.stringify([
+    { name: 'Item C', keyPoints: ['短い', longItem] }
+  ]), 'list-ui.json');
+
+  const listItemCount = await page.$$eval('#tbody .plain-list-item', els => els.length);
+  assert.equal(listItemCount, 2, 'renders one .plain-list-item per element (the whole array is list-kind)');
+
+  const tagChipCount = await page.$$eval('#tbody .tag', els => els.length);
+  assert.equal(tagChipCount, 0, 'no .tag chips are rendered for a list-kind array');
+
+  await page.click('#tbody .plain-list-item .plain-list-text >> nth=0');
+  const state = await getState();
+  assert.equal(state.tagFilter, null, 'clicking list text does not set state.tagFilter');
+});
