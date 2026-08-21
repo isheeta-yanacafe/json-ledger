@@ -366,6 +366,7 @@
 
   <div class="toolbar">
     <button class="btn primary" id="openBtn">📂 Open File</button>
+    <button class="btn ghost" id="pasteBtn" title="Paste JSON code directly">📋 Paste from Text</button>
     <button class="btn" id="saveBtn" disabled>💾 Save</button>
     <button class="btn ghost" id="saveAsBtn" disabled title="Choose a folder and filename to save to">📁 Save As</button>
     <button class="btn ghost" id="undoBtn" disabled title="Undo (Ctrl/Cmd+Z)">↩ Undo</button>
@@ -395,6 +396,7 @@
     <p>Open a local JSON file (an array of objects, or JSON that contains one) to edit it freely in table or card view. You can also try the sample data.</p>
     <div class="actions">
       <button class="btn primary" id="openBtn2">📂 Open JSON File</button>
+      <button class="btn ghost" id="pasteBtn2" title="Paste JSON code directly">📋 Paste from Text</button>
       <button class="btn ghost" id="demoBtn">🍵 Try the Sample (Café Menu)</button>
     </div>
   </div>
@@ -416,6 +418,22 @@
     Everything runs entirely in your browser. No data is ever sent anywhere.
     <label class="added-at-toggle"><input type="checkbox" id="showAddedAtToggle"> Show added date</label>
   </footer>
+</div>
+
+<div id="pasteModalOverlay" class="modal-overlay hidden">
+  <div class="modal-box">
+    <h3>📋 Paste from Text</h3>
+    <div class="hint">
+      Paste JSON code directly (supports an array of objects, an object containing an array, or a single object).
+      Useful when you have JSON that isn't saved as a file yet.
+    </div>
+    <textarea id="pasteTextArea" placeholder="Paste JSON code here..."></textarea>
+    <div class="modal-err" id="pasteErrBox"></div>
+    <div class="modal-actions">
+      <button class="btn ghost on-light" id="pasteCancelBtn">Cancel</button>
+      <button class="btn primary" id="pasteRunBtn">Load</button>
+    </div>
+  </div>
 </div>
 
 <input type="file" id="fileInput" accept=".json,application/json" class="hidden">
@@ -653,6 +671,28 @@
     setControlsEnabled(true);
     render();
     toast('Sample data loaded');
+  }
+
+  // ---------------- Paste from text ----------------
+  function openPasteModal(){
+    $('#pasteErrBox').textContent = '';
+    $('#pasteTextArea').value = '';
+    $('#pasteModalOverlay').classList.remove('hidden');
+    $('#pasteTextArea').focus();
+  }
+  function closePasteModal(){
+    $('#pasteModalOverlay').classList.add('hidden');
+  }
+  function runPasteLoad(){
+    const text = $('#pasteTextArea').value.trim();
+    const errBox = $('#pasteErrBox');
+    errBox.textContent = '';
+    if (!text){ errBox.textContent = '⚠ Please paste some text'; return; }
+    if (!confirmDiscardIfDirty()) return;
+    state.fileHandle = null; // 貼り付けは既存ファイルと紐付かないため必ず切り離す
+    const ok = loadJSONText(text, 'pasted.json');
+    if (ok) closePasteModal();
+    else errBox.textContent = '⚠ Failed to parse JSON. Please check the content';
   }
 
   // ---------------- Save ----------------
@@ -1309,6 +1349,11 @@
   // ---------------- Wire up controls ----------------
   $('#openBtn').addEventListener('click', openFile);
   $('#openBtn2').addEventListener('click', openFile);
+  $('#pasteBtn').addEventListener('click', openPasteModal);
+  $('#pasteBtn2').addEventListener('click', openPasteModal);
+  $('#pasteCancelBtn').addEventListener('click', closePasteModal);
+  $('#pasteRunBtn').addEventListener('click', runPasteLoad);
+  $('#pasteModalOverlay').addEventListener('click', (e) => { if (e.target === $('#pasteModalOverlay')) closePasteModal(); });
   $('#demoBtn').addEventListener('click', loadDemo);
   $('#saveBtn').addEventListener('click', saveFile);
   $('#saveAsBtn').addEventListener('click', () => saveFileAs());

@@ -376,6 +376,7 @@
 
   <div class="toolbar">
     <button class="btn primary" id="openBtn">📂 ファイルを開く</button>
+    <button class="btn ghost" id="pasteBtn" title="JSONコードを直接貼り付けて読み込む">📋 テキストから貼り付け</button>
     <button class="btn" id="saveBtn" disabled>💾 保存</button>
     <button class="btn ghost" id="saveAsBtn" disabled title="保存先のフォルダとファイル名を選んで保存">📁 名前を付けて保存</button>
     <button class="btn ghost" id="undoBtn" disabled title="元に戻す（Ctrl/Cmd+Z）">↩ 元に戻す</button>
@@ -405,6 +406,7 @@
     <p>ローカルのJSONファイル（オブジェクトの配列、または配列を含むJSON）を開くと、テーブルとカードで自由に編集できます。サンプルで試すこともできます。</p>
     <div class="actions">
       <button class="btn primary" id="openBtn2">📂 JSONファイルを開く</button>
+      <button class="btn ghost" id="pasteBtn2" title="JSONコードを直接貼り付けて読み込む">📋 テキストから貼り付け</button>
       <button class="btn ghost" id="demoBtn">🍵 サンプルを試す（カフェメニュー）</button>
     </div>
   </div>
@@ -426,6 +428,22 @@
     すべての処理はブラウザ内で完結します。データは外部に送信されません。
     <label class="added-at-toggle"><input type="checkbox" id="showAddedAtToggle"> 追加日時を表示する</label>
   </footer>
+</div>
+
+<div id="pasteModalOverlay" class="modal-overlay hidden">
+  <div class="modal-box">
+    <h3>📋 テキストから貼り付け</h3>
+    <div class="hint">
+      JSONのコードをそのまま貼り付けてください（オブジェクトの配列／配列を含むオブジェクト／単一オブジェクトのいずれにも対応）。
+      ファイルとして保存する前のコードをそのまま読み込みたいときに使います。
+    </div>
+    <textarea id="pasteTextArea" placeholder="ここにJSONコードを貼り付け..."></textarea>
+    <div class="modal-err" id="pasteErrBox"></div>
+    <div class="modal-actions">
+      <button class="btn ghost on-light" id="pasteCancelBtn">キャンセル</button>
+      <button class="btn primary" id="pasteRunBtn">読み込む</button>
+    </div>
+  </div>
 </div>
 
 <input type="file" id="fileInput" accept=".json,application/json" class="hidden">
@@ -663,6 +681,28 @@
     setControlsEnabled(true);
     render();
     toast('サンプルを読み込みました');
+  }
+
+  // ---------------- Paste from text ----------------
+  function openPasteModal(){
+    $('#pasteErrBox').textContent = '';
+    $('#pasteTextArea').value = '';
+    $('#pasteModalOverlay').classList.remove('hidden');
+    $('#pasteTextArea').focus();
+  }
+  function closePasteModal(){
+    $('#pasteModalOverlay').classList.add('hidden');
+  }
+  function runPasteLoad(){
+    const text = $('#pasteTextArea').value.trim();
+    const errBox = $('#pasteErrBox');
+    errBox.textContent = '';
+    if (!text){ errBox.textContent = '⚠ テキストを貼り付けてください'; return; }
+    if (!confirmDiscardIfDirty()) return;
+    state.fileHandle = null; // 貼り付けは既存ファイルと紐付かないため必ず切り離す
+    const ok = loadJSONText(text, 'pasted.json');
+    if (ok) closePasteModal();
+    else errBox.textContent = '⚠ JSONの解析に失敗しました。内容を確認してください';
   }
 
   // ---------------- Save ----------------
@@ -1369,6 +1409,11 @@
   // ---------------- Wire up controls ----------------
   $('#openBtn').addEventListener('click', openFile);
   $('#openBtn2').addEventListener('click', openFile);
+  $('#pasteBtn').addEventListener('click', openPasteModal);
+  $('#pasteBtn2').addEventListener('click', openPasteModal);
+  $('#pasteCancelBtn').addEventListener('click', closePasteModal);
+  $('#pasteRunBtn').addEventListener('click', runPasteLoad);
+  $('#pasteModalOverlay').addEventListener('click', (e) => { if (e.target === $('#pasteModalOverlay')) closePasteModal(); });
   $('#demoBtn').addEventListener('click', loadDemo);
   $('#saveBtn').addEventListener('click', saveFile);
   $('#saveAsBtn').addEventListener('click', () => saveFileAs());

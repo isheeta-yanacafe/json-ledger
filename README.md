@@ -36,6 +36,8 @@ The whole object is treated as one record. In this mode, adding or deleting reco
 
 **Opening data**: Use "Open File" to load a local `.json` file, or "Try the Sample" to load a small built-in café menu. Opening a different file while there are unsaved changes asks for confirmation first.
 
+**Paste from Text**: Use "📋 Paste from Text" to load JSON code you've copied, without going through a file. It behaves the same as opening a file (a full replace) and prompts to confirm if you have unsaved changes. The loaded data gets a placeholder filename of `pasted.json`, which you can change via "Save As".
+
 **Editing cells**: Plain values (text, numbers, booleans) are edited in place — text cells are a click-to-edit field, numbers get a number input, booleans get a checkbox. Arrays of plain values (e.g. tags) are shown as removable chips with an inline "add" field. Arrays of objects expand into an accordion, where each item's fields are edited individually. Anything else (a plain nested object, or a mixed/irregular array) opens a small modal for direct JSON editing.
 
 **Adding nested items to a cell**: Every plain-value cell has a "+Field" button that turns it into a list of nested items with an inline accordion editor. This replaces the cell's current value — if the cell already holds something, a confirmation dialog warns that the value will be lost, since a value can't be both a scalar and a list of nested items at once.
@@ -107,6 +109,8 @@ MIT — Copyright (c) 2026 Mosozo Inc. See [LICENSE](./LICENSE) for the full tex
 ## 使い方
 
 **ファイルを開く**: 「ファイルを開く」でローカルの `.json` ファイルを読み込むか、「サンプルを試す」で内蔵の小さなカフェメニューを読み込みます。未保存の変更がある状態で別のファイルを開こうとすると、先に確認ダイアログが出ます。
+
+**テキストから貼り付け**: 「📋 テキストから貼り付け」で、JSONファイルを介さずにコピーしたJSONコードを直接貼り付けて読み込めます。動作は「ファイルを開く」と同じ全置き換えで、未保存の変更があれば先に確認ダイアログが出ます。読み込み後のファイル名は仮に `pasted.json` になり、「名前を付けて保存」で変更できます。
 
 **セルの編集**: 単純な値（文字列・数値・真偽値）はその場で編集します。文字列セルはクリックして直接入力、数値セルは数値入力欄、真偽値はチェックボックスになります。単純な値の配列（タグなど）は、削除可能なチップと追加用の入力欄として表示されます。オブジェクトの配列はアコーディオンとして展開し、各項目のフィールドを個別に編集できます。それ以外（単純なネストオブジェクトや、型が混在した配列など）は、小さなモーダルでJSONを直接編集します。
 
