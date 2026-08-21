@@ -584,8 +584,8 @@
     let text = state.fileName + (state.fileHandle ? ' (直接保存可)' : '');
     const total = state.records.length;
     if (total > 0){
-      if (state.query){
-        const filtered = state.records.filter(matchesQuery).length;
+      if (state.query || state.tagFilter){
+        const filtered = state.records.filter(r => matchesQuery(r) && matchesTagFilter(r)).length;
         text += ' ・ ' + filtered.toLocaleString() + ' / ' + total.toLocaleString() + '件';
       } else {
         text += ' ・ ' + total.toLocaleString() + '件';
@@ -1408,7 +1408,7 @@
     window.__jsonLedgerTest = {
       state, normalize, serialize, computeColumns, loadJSONText,
       addRecord, getDisplayOrder, compareSortValues, formatAddedAt,
-      isTagLikeArray, arrayCellKind
+      isTagLikeArray, arrayCellKind, updateFileTag, render
     };
   }
 

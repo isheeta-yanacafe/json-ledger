@@ -293,3 +293,58 @@ test('UI: an array with a long element renders as a plain list; clicking it does
   const state = await getState();
   assert.equal(state.tagFilter, null, 'clicking list text does not set state.tagFilter');
 });
+
+// ---------------- updateFileTag() record count (query + tagFilter combined) ----------------
+
+test('fileTagText: tag-only filtering shows "filtered / total", matching the visible rows', async () => {
+  await callTest('loadJSONText', JSON.stringify([
+    { name: 'Apple Pie', tags: ['Popular'] },
+    { name: 'Apple Tart', tags: ['Seasonal'] },
+    { name: 'Banana Split', tags: ['Popular'] },
+    { name: 'Cherry Cake', tags: ['Seasonal'] }
+  ]), 'filetag-count.json');
+
+  await setState({ tagFilter: 'Popular' });
+  await callTest('render');
+  let text = await page.textContent('#fileTagText');
+  assert.match(text, /2\s*\/\s*4件/, 'tag-only filter shows 2 / 4件: ' + text);
+
+  let visibleRows = await page.$$eval('#tbody tr', rows => rows.length);
+  assert.equal(visibleRows, 2, 'table shows exactly the 2 matching rows');
+
+  await setState({ tagFilter: null });
+});
+
+test('fileTagText: search-only filtering still shows "filtered / total" (regression check)', async () => {
+  await setState({ query: 'Cherry' });
+  await callTest('render');
+  const text = await page.textContent('#fileTagText');
+  assert.match(text, /1\s*\/\s*4件/, 'search-only filter shows 1 / 4件: ' + text);
+
+  const visibleRows = await page.$$eval('#tbody tr', rows => rows.length);
+  assert.equal(visibleRows, 1, 'table shows exactly the 1 matching row');
+
+  await setState({ query: '' });
+});
+
+test('fileTagText: search + tag combined counts only records matching both, matching the visible rows', async () => {
+  await setState({ query: 'Apple', tagFilter: 'Popular' });
+  await callTest('render');
+  const text = await page.textContent('#fileTagText');
+  assert.match(text, /1\s*\/\s*4件/, 'combined filters narrow to the single record matching both: ' + text);
+
+  const visibleRows = await page.$$eval('#tbody tr', rows => rows.length);
+  assert.equal(visibleRows, 1, 'table shows exactly the 1 row matching both filters');
+
+  await setState({ query: '', tagFilter: null });
+});
+
+test('fileTagText: clearing all filters restores the plain total count', async () => {
+  await callTest('render');
+  const text = await page.textContent('#fileTagText');
+  assert.match(text, /4件$/, 'no filters active: shows the plain total, no "x /": ' + text);
+  assert.ok(!text.includes('/'), 'no "/" in the unfiltered count: ' + text);
+
+  const visibleRows = await page.$$eval('#tbody tr', rows => rows.length);
+  assert.equal(visibleRows, 4, 'all 4 rows are visible again');
+});
