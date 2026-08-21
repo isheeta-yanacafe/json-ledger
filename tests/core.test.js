@@ -348,3 +348,59 @@ test('fileTagText: clearing all filters restores the plain total count', async (
   const visibleRows = await page.$$eval('#tbody tr', rows => rows.length);
   assert.equal(visibleRows, 4, 'all 4 rows are visible again');
 });
+
+// ---------------- Record-level JSON view/edit ("{ }" button) ----------------
+// openJsonModalGeneric's overlay is created fresh (never gets a "hidden" class) and removed on
+// close, unlike the always-present static modals (#pasteModalOverlay etc.) which stay in the DOM
+// with "hidden" toggled. ".modal-overlay:not(.hidden)" reliably targets just this dynamic modal.
+
+test('table: the "{ }" button opens a modal pre-filled with that record\'s JSON', async () => {
+  await callTest('loadJSONText', JSON.stringify([
+    { name: 'Item A', price: 100 },
+    { name: 'Item B', price: 200 }
+  ]), 'record-json.json');
+  await setState({ view: 'table' });
+  await callTest('render');
+
+  await page.click('#tbody tr:nth-child(1) button[title="レコードのJSONを表示・編集"]');
+  const ta = page.locator('.modal-overlay:not(.hidden) textarea');
+  assert.equal(await ta.inputValue(), JSON.stringify({ name: 'Item A', price: 100 }, null, 2));
+  await page.click('.modal-overlay:not(.hidden) >> text=キャンセル');
+});
+
+test('card: the "{ }" button opens a modal pre-filled with that record\'s JSON', async () => {
+  await setState({ view: 'card' });
+  await callTest('render');
+
+  await page.click('#cardGrid .rec-card:nth-child(2) button[title="レコードのJSONを表示・編集"]');
+  const ta = page.locator('.modal-overlay:not(.hidden) textarea');
+  assert.equal(await ta.inputValue(), JSON.stringify({ name: 'Item B', price: 200 }, null, 2));
+  await page.click('.modal-overlay:not(.hidden) >> text=キャンセル');
+  await setState({ view: 'table' });
+  await callTest('render');
+});
+
+test('record JSON modal: saving valid JSON replaces the record and adds new keys as columns', async () => {
+  await page.click('#tbody tr:nth-child(1) button[title="レコードのJSONを表示・編集"]');
+  const ta = page.locator('.modal-overlay:not(.hidden) textarea');
+  await ta.fill(JSON.stringify({ name: 'Item A', price: 150, note: 'on sale' }, null, 2));
+  await page.click('.modal-overlay:not(.hidden) >> text=保存');
+  await page.waitForTimeout(100);
+
+  const state = await getState();
+  assert.deepEqual(state.records[0], { name: 'Item A', price: 150, note: 'on sale' });
+  assert.ok(state.columns.includes('note'), 'new key from the pasted JSON becomes a column: ' + JSON.stringify(state.columns));
+});
+
+test('record JSON modal: invalid JSON shows an error and does not close the modal', async () => {
+  await page.click('#tbody tr:nth-child(1) button[title="レコードのJSONを表示・編集"]');
+  const ta = page.locator('.modal-overlay:not(.hidden) textarea');
+  await ta.fill('{ not valid json');
+  await page.click('.modal-overlay:not(.hidden) >> text=保存');
+  await page.waitForTimeout(50);
+
+  assert.equal(await page.locator('.modal-overlay:not(.hidden)').count(), 1, 'modal stays open on invalid JSON');
+  const err = await page.textContent('.modal-overlay:not(.hidden) .modal-err');
+  assert.match(err, /⚠/);
+  await page.click('.modal-overlay:not(.hidden) >> text=キャンセル');
+});
