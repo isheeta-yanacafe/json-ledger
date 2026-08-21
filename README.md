@@ -26,6 +26,14 @@ Each array element becomes a row/card.
 ```
 The array property (here, `menu`) becomes the editable rows; any other top-level properties (here, `store`) are preserved and written back unchanged on save.
 
+**Note (a limitation of the detection)**: This detection is purely structural and can't distinguish "a list of multiple records" from "a single record that happens to contain a tag-like array." For example:
+
+```json
+{ "name": "Tanaka", "age": 14, "clubs": ["Soccer Club", "Computer Club"], "isPresident": false }
+```
+
+will be treated as two records (from the `clubs` array) rather than one record for "Tanaka" — `name`, `age`, and `isPresident` won't appear in the editor (the data isn't lost; it's written back unchanged on save). If you want to edit "one record with a tag array" like this, wrapping it in an array yourself (e.g. `[{ "name": "Tanaka", ... }]`) will give you the intended result.
+
 **A single object with no array property**
 ```json
 { "name": "Item A", "price": 500 }
@@ -99,6 +107,14 @@ MIT — Copyright (c) 2026 Mosozo Inc. See [LICENSE](./LICENSE) for the full tex
 { "store": "お店", "menu": [{ "name": "商品A" }] }
 ```
 その配列プロパティ（例では `menu`）が編集対象の行になります。それ以外のトップレベルのプロパティ（例では `store`）はそのまま保持され、保存時にも変更されずに書き戻されます。
+
+**注意（判定の限界）**: この判定は機械的なもので、「複数レコードの一覧」と「1件のレコードの中にあるタグのような配列」を区別できません。例えば
+
+```json
+{ "名前": "たなか", "年齢": 14, "部活": ["サッカー部", "パソコン部"], "生徒会長": false }
+```
+
+のようなJSONは、「たなか」という1件のレコードではなく、`部活`配列の2件（サッカー部・パソコン部）がレコードとして扱われ、`名前`・`年齢`・`生徒会長`は編集画面には表示されません（データが失われるわけではなく、保存時にはそのまま書き戻されます）。このような「1件のレコード＋タグ配列」を編集したい場合は、あらかじめ配列の形にする（例: `[{ "名前": "たなか", ... }]`）と意図通りに扱えます。
 
 **配列を含まない単一オブジェクト**
 ```json
