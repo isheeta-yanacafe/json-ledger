@@ -30,6 +30,25 @@ Today, JSON Ledger is scoped to editing a single JSON file at a time.
     automatically, with the Table/Card toggle grayed out and a reason shown
     (discovered via a school student-profile JSON example)
   - Open questions: read-only vs. editable; the detection criteria for "doesn't map well to a table" itself
+- [ ] Let the user choose the "source of truth" property at load time (an alternative to `normalize()`'s
+      automatic guess)
+  - Background: `normalize()` mechanically picks the first array property as "the list of records"
+    without looking at its contents, which misfires on JSON that contains an array but is really a
+    single record (e.g. the school student-profile JSON example from the tree-view item above). No
+    amount of smarter heuristics can fully resolve this ambiguity, so letting a human decide only when
+    it's actually ambiguous is more reliable
+  - Idea: when an array property is found (including when there are multiple), show a dialog asking
+    which property to use as the list of records (or to treat the whole object as a single record).
+    Default to the current behavior (use the first array found) to preserve backward compatibility
+  - "Re-choose" idea: keep a small persistent button (e.g. "🔀 Change which field is used as rows")
+    that lets the user re-run the choice against the original parsed data at any time, without
+    re-pasting or re-opening the file. Re-choosing discards any in-progress edits, so it should prompt
+    the same confirmation as the existing `confirmDiscardIfDirty()`. This is a separate mechanism from
+    the regular Undo (Ctrl+Z), consistent with the existing design where Undo covers post-load edits,
+    not the load action itself
+  - Complements (doesn't compete with) the tree-view item above — this resolves ambiguity before
+    loading, tree view is the escape hatch after loading when table form isn't wanted
+  - Open questions: UI for when multiple array properties exist; exact dialog wording/UI
 
 ## Out of scope
 
@@ -72,6 +91,22 @@ Thoughts and pull requests are welcome. For anything beyond a small fix, please 
     表示をデフォルトにし、テーブル/カードのトグルはグレーアウトしてその理由を表示する
     （中学校の生徒プロフィールJSONの検証で発見したケースがきっかけ）
   - 未検討事項: 読み取り専用か編集可能か／「表になりにくい」の判定基準そのもの
+- [ ] 読み込み時に「主（ぬし）」を人間が選べるようにする（`normalize()`の機械的推測に代わる案）
+  - 背景: `normalize()`は、オブジェクトの中の配列プロパティを中身を見ずに機械的に「行の一覧」として
+    採用するため、「配列を含むが実質は単一レコード」のJSON（例: 中学校の生徒プロフィールJSON、
+    上記ツリー構造ビュー項目の例と同じ）で誤展開が起きる。これはヒューリスティックをどれだけ賢く
+    しても原理的に解消しきれない曖昧さのため、判断が必要な場面だけ人間に選ばせる方が構造的に確実
+  - 案: 配列プロパティが見つかった時点（複数ある場合も含む）で、「どの項目を行の一覧として使うか
+    （／単一レコードとして扱うか）」を選択するダイアログを出す。デフォルト選択は現行動作
+    （最初に見つかった配列を採用）とし、後方互換を保つ
+  - 「選び直し」案: 一度選んだ後でも「🔀 行として使う項目を変更」のような常設ボタンから、元の
+    パース結果に対して選び直しができるようにする（テキストの再貼り付けやファイルの再選択は不要）。
+    選び直し時は編集中の内容が失われるため、既存の`confirmDiscardIfDirty()`と同様の確認を挟む。
+    通常のUndo（Ctrl+Z）とは別の仕組みとして扱う（Undoは読み込み後のセル編集等が対象で、読み込み
+    行為自体は元々Undo対象外という既存の設計方針に合わせるため）
+  - 上記「ツリー構造ビュー」の項目とは競合せず補完関係（こちらは読み込み前に曖昧さを解消する案、
+    ツリービューは読み込み後に表形式にしたくない場合の逃げ道）
+  - 未検討事項: 配列プロパティが複数ある場合のUI（選択肢の並べ方）／ダイアログの具体的な文言・UI
 
 ## 対象外
 
